@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px dashed #dee2e6;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .upload-section.dragover {
+            border-color: #667eea;
+            background: #e8f0fe;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .user-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 1em;
+            margin-top: 20px;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .user-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .datasets-section {
+            margin-top: 40px;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .dataset-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+
+        .dataset-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+
+        .dataset-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .dataset-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .dataset-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .status-uploaded {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-extracting {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .dataset-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .info-value {
+            color: #333;
+            margin-top: 5px;
+        }
+
+        .dataset-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .tag {
+            background: #667eea;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+            
+            .dataset-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .dataset-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 数据管理系统</h1>
+            <p>基于LangGraph的智能数据元数据提取平台</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 上传区域 -->
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-icon">📁</div>
+                <h3>上传数据集</h3>
+                <p>支持CSV文件或包含CSV的ZIP压缩包</p>
+                <input type="file" id="fileInput" class="file-input" accept=".csv,.zip">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    选择文件
+                </button>
+                <textarea 
+                    id="userInput" 
+                    class="user-input" 
+                    placeholder="请输入关于此数据集的额外信息（可选）&#10;例如：数据来源、业务背景、特殊说明等..."
+                ></textarea>
+            </div>
+
+            <!-- 消息提示 -->
+            <div id="message" class="message"></div>
+
+            <!-- 加载状态 -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>正在处理数据集，请稍候...</p>
+            </div>
+
+            <!-- 数据集列表 -->
+            <div class="datasets-section">
+                <h2 class="section-title">📊 数据集列表</h2>
+                <div id="datasetsList">
+                    <!-- 数据集卡片将在这里动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API基础URL
+        const API_BASE = '/api/v1';
+
+        // 页面加载时获取数据集列表
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDatasets();
+            setupFileUpload();
+        });
+
+        // 设置文件上传
+        function setupFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadSection = document.getElementById('uploadSection');
+
+            // 文件选择事件
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    uploadFile(e.target.files[0]);
+                }
+            });
+
+            // 拖拽上传
+            uploadSection.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadSection.classList.add('dragover');
+            });
+
+            uploadSection.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadSection.classList.remove('dragover');
+            });
+
+            uploadSection.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadSection.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    uploadFile(files[0]);
+                }
+            });
+        }
+
+        // 上传文件
+        async function uploadFile(file) {
+            const userInput = document.getElementById('userInput').value;
+            
+            // 验证文件类型
+            const allowedTypes = ['.csv', '.zip'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedTypes.includes(fileExtension)) {
+                showMessage('请上传CSV文件或ZIP压缩包', 'error');
+                return;
+            }
+
+            showLoading(true);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            if (userInput) {
+                formData.append('user_input', userInput);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/datasets/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage(`文件上传成功！数据集ID: ${result.dataset_id}`, 'success');
+                    document.getElementById('fileInput').value = '';
+                    document.getElementById('userInput').value = '';
+                    
+                    // 刷新数据集列表
+                    setTimeout(() => {
+                        loadDatasets();
+                    }, 1000);
+                } else {
+                    showMessage(`上传失败: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`上传失败: ${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 加载数据集列表
+        async function loadDatasets() {
+            try {
+                const response = await fetch(`${API_BASE}/datasets`);
+                const datasets = await response.json();
+
+                if (response.ok) {
+                    renderDatasets(datasets);
+                } else {
+                    showMessage('加载数据集列表失败', 'error');
+                }
+            } catch (error) {
+                showMessage(`加载失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 渲染数据集列表
+        function renderDatasets(datasets) {
+            const container = document.getElementById('datasetsList');
+            
+            if (datasets.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">暂无数据集，请上传第一个数据集</p>';
+                return;
+            }
+
+            container.innerHTML = datasets.map(dataset => `
+                <div class="dataset-card">
+                    <div class="dataset-header">
+                        <div class="dataset-name">${dataset.name}</div>
+                        <div class="dataset-status status-${getStatusClass(dataset.processing_status)}">
+                            ${getStatusText(dataset.processing_status)}
+                        </div>
+                    </div>
+                    
+                    <div class="dataset-info">
+                        <div class="info-item">
+                            <div class="info-label">文件大小</div>
+                            <div class="info-value">${formatFileSize(dataset.file_size)}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">上传时间</div>
+                            <div class="info-value">${formatDate(dataset.upload_time)}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">列数</div>
+                            <div class="info-value">${dataset.columns.length}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">数据质量</div>
+                            <div class="info-value">${dataset.quality_metrics ? Math.round(dataset.quality_metrics.quality_score) + '%' : '未分析'}</div>
+                        </div>
+                    </div>
+
+                    ${dataset.description ? `<div class="info-item"><div class="info-label">描述</div><div class="info-value">${dataset.description}</div></div>` : ''}
+                    
+                    ${dataset.tags.length > 0 ? `
+                        <div class="tags">
+                            ${dataset.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+
+                    <div class="dataset-actions">
+                        <button class="action-btn btn-primary" onclick="viewDataset('${dataset.id}')">查看详情</button>
+                        <button class="action-btn btn-secondary" onclick="previewDataset('${dataset.id}')">数据预览</button>
+                        ${dataset.processing_status === 'uploaded' ? `<button class="action-btn btn-primary" onclick="extractMetadata('${dataset.id}')">提取元数据</button>` : ''}
+                        <button class="action-btn btn-danger" onclick="deleteDataset('${dataset.id}')">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 获取状态样式类
+        function getStatusClass(status) {
+            const statusMap = {
+                'uploaded': 'uploaded',
+                'extracting_metadata': 'extracting',
+                'metadata_extracted': 'completed',
+                'extraction_failed': 'failed'
+            };
+            return statusMap[status] || 'uploaded';
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const statusMap = {
+                'uploaded': '已上传',
+                'extracting_metadata': '分析中',
+                'metadata_extracted': '已完成',
+                'extraction_failed': '分析失败'
+            };
+            return statusMap[status] || '未知状态';
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN');
+        }
+
+        // 查看数据集详情
+        function viewDataset(datasetId) {
+            window.open(`/docs#/datasets/get_dataset_datasets__dataset_id__get`, '_blank');
+        }
+
+        // 预览数据集
+        async function previewDataset(datasetId) {
+            try {
+                const response = await fetch(`${API_BASE}/datasets/${datasetId}/preview`);
+                const preview = await response.json();
+
+                if (response.ok) {
+                    // 创建预览窗口
+                    const previewWindow = window.open('', '_blank', 'width=800,height=600');
+                    previewWindow.document.write(`
+                        <html>
+                        <head>
+                            <title>数据预览</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 20px; }
+                                table { border-collapse: collapse; width: 100%; }
+                                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                                th { background-color: #f2f2f2; }
+                            </style>
+                        </head>
+                        <body>
+                            <h2>数据预览 (${preview.shape[0]} 行 × ${preview.shape[1]} 列)</h2>
+                            <table>
+                                <thead>
+                                    <tr>${preview.columns.map(col => `<th>${col}</th>`).join('')}</tr>
+                                </thead>
+                                <tbody>
+                                    ${preview.data.map(row => 
+                                        `<tr>${preview.columns.map(col => `<td>${row[col] || ''}</td>`).join('')}</tr>`
+                                    ).join('')}
+                                </tbody>
+                            </table>
+                        </body>
+                        </html>
+                    `);
+                } else {
+                    showMessage('预览失败', 'error');
+                }
+            } catch (error) {
+                showMessage(`预览失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 提取元数据
+        async function extractMetadata(datasetId) {
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE}/datasets/${datasetId}/extract-metadata`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dataset_id: datasetId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('元数据提取完成', 'success');
+                    loadDatasets(); // 刷新列表
+                } else {
+                    showMessage(`提取失败: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`提取失败: ${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 删除数据集
+        async function deleteDataset(datasetId) {
+            if (!confirm('确定要删除这个数据集吗？此操作不可恢复。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/datasets/${datasetId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('数据集删除成功', 'success');
+                    loadDatasets(); // 刷新列表
+                } else {
+                    showMessage(`删除失败: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`删除失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示消息
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            messageEl.style.display = 'block';
+
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // 显示/隐藏加载状态
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html> 
