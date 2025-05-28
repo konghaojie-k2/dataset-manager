@@ -40,10 +40,9 @@ def main():
     
     # 启动服务器
     import uvicorn
-    from main import app
     
     uvicorn.run(
-        app,
+        "main:app",
         host=os.getenv("DATASET_MANAGER_HOST", "127.0.0.1"),
         port=int(os.getenv("DATASET_MANAGER_PORT", "8000")),
         reload=True,

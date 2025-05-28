@@ -1,0 +1,78 @@
+﻿---
+description: 
+globs: 
+alwaysApply: true
+---
+# 开发指南
+
+## 包管理规范
+
+### 必须使用uv
+- **禁止手动创建** `pyproject.toml`，必须使用 `uv init` 命令生成
+- **不使用** `requirements.txt`，所有依赖在 [pyproject.toml](mdc:pyproject.toml) 中管理
+- 添加新依赖使用：`uv add package_name` 
+- 安装依赖使用：`uv sync` 
+
+### 依赖管理
+`ash
+# 初始化项目
+uv init
+
+# 添加依赖
+uv add langchain langgraph langchain-openai
+
+# 安装依赖
+uv sync
+
+# 运行项目
+uv run python main.py
+` 
+
+### 路径管理
+- 关于文件地址的处理使用pathlib库
+
+### 可视化管理
+- 如若需要import matplotlib , 默认添加中文和附属正常显示的相关配置
+
+### 日志管理
+- 所有的log相关的处理使用loguru库
+
+## LangGraph和LangChain使用规范
+
+### 使用最新语法
+- 使用LangGraph 0.4.7+的最新API
+- 使用LangChain 0.3.25+的最新语法
+- 支持MCP服务器集成
+
+### 代码风格
+- 所有注释和文档使用中文
+- 函数和变量命名使用英文
+- 类名使用PascalCase
+- 函数名使用snake_case
+
+### 模型初始化
+- 使用ChatOpenAI包
+
+## 项目结构规范
+
+### 模块组织
+- 每个功能模块独立在 `src/` 下的子目录
+- 使用 `__init__.py` 文件管理模块导入
+- 配置文件统一放在 `src/config/` 
+
+### 文件命名
+- Python文件使用snake_case
+- 配置文件使用小写字母和下划线
+- 文档文件使用kebab-case
+
+## 环境配置
+
+### 必需的环境变量
+在 `.env` 文件中配置：
+`	ext
+DEEPSEEK_API_KEY=你的API密钥
+` 
+
+### Python版本
+- 要求Python >= 3.11
+- 版本信息在 [.python-version](mdc:.python-version) 中指定

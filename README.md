@@ -113,8 +113,10 @@ preview = response.json()
 ### 核心组件
 ```
 ├── src/dataset_manager/
-│   ├── models/          # 数据模型定义
-│   │   └── models.py          # 数据模型定义
+│   ├── schemas/         # 数据结构定义
+│   │   ├── dataset.py         # 数据集相关结构
+│   │   ├── analysis.py        # 分析相关结构
+│   │   └── mcp.py             # MCP服务器相关结构
 │   ├── core/           # 核心业务逻辑
 │   │   ├── file_handler.py      # 文件处理
 │   │   └── dataset_service.py   # 数据集服务
@@ -159,7 +161,7 @@ preview = response.json()
 - 使用`LangGraph`构建AI工作流
 
 ### 添加新功能
-1. 在`models/`中定义数据模型
+1. 在`schemas/`中定义数据结构
 2. 在`core/`中实现业务逻辑
 3. 在`agents/`中扩展AI代理
 4. 在`api/`中添加API端点
