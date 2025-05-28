@@ -15,6 +15,7 @@ from .dataset_repository import DatasetRepository
 from .file_service import FileService
 from .metadata_service import MetadataService
 from ..graph.workflow import run_industrial_analysis
+from ..tools.report_manager import report_manager
 
 
 class DatasetService:
@@ -92,39 +93,31 @@ class DatasetService:
             Dict[str, Any]: 提取结果
         """
         try:
+            logger.info(f"开始提取数据集元数据: {dataset_id}")
+            
             # 1. 获取数据集
             dataset = self.repository.get_by_id(dataset_id)
             if not dataset:
                 raise ValueError(f"数据集不存在: {dataset_id}")
             
-            # 2. 更新状态
-            self.repository.update_status(dataset_id, "extracting_metadata")
+            # 2. 获取文件路径
+            file_path = self.file_service.get_file_path(dataset.file_path)
+            if not file_path.exists():
+                raise FileNotFoundError(f"数据文件不存在: {file_path}")
             
-            # 3. 提取CSV文件
-            file_path = Path(dataset.file_path)
-            csv_files = self.file_service.extract_csv_files(file_path)
-            
-            if not csv_files:
-                raise ValueError("未找到可处理的CSV文件")
-            
-            # 4. 使用第一个CSV文件进行分析
-            csv_file = csv_files[0]
-            
-            # 5. 使用工业数据分析工作流进行完整分析
-            logger.info(f"开始工业数据分析工作流: {dataset_id}")
-            
+            # 3. 运行工业数据分析工作流
             analysis_result = await run_industrial_analysis(
-                file_path=str(csv_file),
-                dataset_name=dataset.name or f"数据集_{dataset_id}",
-                analysis_goals=["设备列识别", "业务含义分析", "控制原理分析"],
-                user_requirements=user_input,
-                config={
-                    "dataset_id": dataset_id,
-                    "enable_detailed_logging": True
-                }
+                file_path=file_path,
+                dataset_name=dataset.name,
+                user_requirements=user_input or ""
             )
             
-            # 6. 提取分析结果
+            # 4. 检查分析是否成功
+            if not analysis_result or analysis_result.get("errors"):
+                logger.error(f"工业数据分析失败: {analysis_result.get('errors', [])}")
+                raise RuntimeError("工业数据分析失败")
+            
+            # 5. 提取分析结果
             extraction_result = {
                 "basic_info": analysis_result.get("data_info", {}),
                 "statistical_summary": analysis_result.get("statistical_summary", {}),
@@ -140,10 +133,10 @@ class DatasetService:
                 "errors": analysis_result.get("errors", [])
             }
             
-            # 7. 更新数据集元数据
+            # 6. 更新数据集元数据
             updated_dataset = self.metadata_service.update_dataset_metadata(dataset, extraction_result)
             
-            # 8. 添加工业分析特定的元数据
+            # 7. 添加工业分析特定的元数据
             if extraction_result.get("device_time_identification"):
                 updated_dataset.tags = updated_dataset.tags or []
                 if "工业数据" not in updated_dataset.tags:
@@ -151,20 +144,34 @@ class DatasetService:
                 if "设备监控" not in updated_dataset.tags:
                     updated_dataset.tags.append("设备监控")
             
-            # 9. 保存更新后的数据集
+            # 8. 保存更新后的数据集
             self.repository.save(updated_dataset)
+            
+            # 9. 保存分析结果为MD文件
+            try:
+                saved_files = report_manager.save_industrial_analysis_report(
+                    dataset_id=dataset_id,
+                    dataset_name=dataset.name,
+                    analysis_results=extraction_result
+                )
+                logger.info(f"分析报告已保存为MD文件: {len(saved_files)} 个文件")
+                
+                # 将文件路径信息添加到返回结果中
+                extraction_result["saved_report_files"] = {
+                    key: str(path) for key, path in saved_files.items()
+                }
+            except Exception as e:
+                logger.warning(f"保存分析报告文件失败: {e}")
+                # 不影响主流程，继续执行
             
             # 10. 清理临时文件
             self.file_service.file_processor.cleanup_extracted_files(file_path)
             
-            logger.info(f"工业数据分析完成: {dataset_id}")
+            logger.info(f"数据集元数据提取完成: {dataset_id}")
             return extraction_result
             
         except Exception as e:
-            logger.error(f"工业数据分析失败: {e}")
-            # 更新状态为失败
-            if self.repository.exists(dataset_id):
-                self.repository.update_status(dataset_id, "extraction_failed")
+            logger.error(f"提取数据集元数据失败: {e}")
             raise
     
     def get_dataset(self, dataset_id: str) -> Optional[DatasetMetadata]:

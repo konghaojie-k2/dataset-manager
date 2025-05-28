@@ -18,6 +18,7 @@ from ..config.settings import get_settings, setup_logging
 from ..core.dataset_service import DatasetService
 from .routes import router
 from .mcp_routes import mcp_router
+from .api.v1.reports import router as reports_router
 from .dependencies import set_dataset_service
 from .middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     # 注册路由
     app.include_router(router)
     app.include_router(mcp_router)
+    app.include_router(reports_router)
 
     # 静态文件服务（如果有前端文件）
     web_dir = Path("web")
