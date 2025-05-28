@@ -457,6 +457,9 @@ class AnalysisNodes:
             state["control_relationships_analysis"] = response.content
             state["completed_steps"].append("analyze_control_relationships")
             
+            # 设置为完成状态，因为这是工业分析流程的最后一步
+            state["current_step"] = "completed"
+            
             logger.info("控制原理分析完成")
             
         except Exception as e:

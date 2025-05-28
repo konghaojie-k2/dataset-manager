@@ -163,23 +163,19 @@ class AnalysisWorkflowBuilder:
             workflow.add_node("identify_device_time_columns_step", identify_device_time_columns_node)
             workflow.add_node("analyze_business_meaning_step", analyze_business_meaning_node)
             workflow.add_node("analyze_control_relationships_step", analyze_control_relationships_node)
-            workflow.add_node("generate_insights_step", generate_insights_node)
-            workflow.add_node("create_recommendations_step", create_recommendations_node)
             
             # 设置工作流路径
             workflow.set_entry_point("load_data_step")
             
-            # 添加边 - 顺序执行
+            # 添加边 - 顺序执行，移除建议生成步骤
             workflow.add_edge("load_data_step", "basic_analysis_step")
             workflow.add_edge("basic_analysis_step", "detailed_analysis_step")
             workflow.add_edge("detailed_analysis_step", "identify_device_time_columns_step")
             workflow.add_edge("identify_device_time_columns_step", "analyze_business_meaning_step")
             workflow.add_edge("analyze_business_meaning_step", "analyze_control_relationships_step")
-            workflow.add_edge("analyze_control_relationships_step", "generate_insights_step")
-            workflow.add_edge("generate_insights_step", "create_recommendations_step")
             
-            # 设置结束点
-            workflow.add_edge("create_recommendations_step", END)
+            # 设置结束点 - 控制原理分析后直接结束
+            workflow.add_edge("analyze_control_relationships_step", END)
             
             # 编译工作流
             compiled_workflow = workflow.compile(
@@ -297,21 +293,17 @@ class WorkflowTemplates:
                 "detailed_analysis_step": detailed_analysis_node,
                 "identify_device_time_columns_step": identify_device_time_columns_node,
                 "analyze_business_meaning_step": analyze_business_meaning_node,
-                "analyze_control_relationships_step": analyze_control_relationships_node,
-                "generate_insights_step": generate_insights_node,
-                "create_recommendations_step": create_recommendations_node
+                "analyze_control_relationships_step": analyze_control_relationships_node
             },
             "edges": [
                 ("load_data_step", "basic_analysis_step"),
                 ("basic_analysis_step", "detailed_analysis_step"),
                 ("detailed_analysis_step", "identify_device_time_columns_step"),
                 ("identify_device_time_columns_step", "analyze_business_meaning_step"),
-                ("analyze_business_meaning_step", "analyze_control_relationships_step"),
-                ("analyze_control_relationships_step", "generate_insights_step"),
-                ("generate_insights_step", "create_recommendations_step")
+                ("analyze_business_meaning_step", "analyze_control_relationships_step")
             ],
             "entry_point": "load_data_step",
-            "finish_nodes": ["create_recommendations_step"]
+            "finish_nodes": ["analyze_control_relationships_step"]
         }
 
 
