@@ -1,4 +1,4 @@
-"""数据集仓储层"""
+"""数据集仓储层 - 混合存储策略"""
 
 import json
 from datetime import datetime
@@ -7,10 +7,16 @@ from typing import Dict, List, Optional
 from loguru import logger
 
 from ..schemas.dataset import DatasetMetadata
+from .database_repository import DatabaseRepository
 
 
 class DatasetRepository:
-    """数据集仓储，负责数据持久化"""
+    """数据集仓储，负责数据持久化
+    
+    采用混合存储策略：
+    - SQLite: 存储结构化元数据，支持高效查询
+    - JSON: 存储分析结果和复杂数据，保持灵活性
+    """
     
     def __init__(self, metadata_dir: Path):
         """初始化仓储
@@ -21,24 +27,18 @@ class DatasetRepository:
         self.metadata_dir = Path(metadata_dir)
         self.metadata_dir.mkdir(parents=True, exist_ok=True)
         
-        # 内存缓存
+        # 初始化SQLite数据库仓储
+        db_path = self.metadata_dir / "datasets.db"
+        self.db_repository = DatabaseRepository(db_path)
+        
+        # JSON文件存储目录（用于存储分析结果）
+        self.json_dir = self.metadata_dir / "analysis_results"
+        self.json_dir.mkdir(exist_ok=True)
+        
+        # 内存缓存（可选，用于提高性能）
         self._cache: Dict[str, DatasetMetadata] = {}
         
-        # 加载已有数据
-        self._load_all()
-        
-        logger.info(f"数据集仓储初始化完成，加载了 {len(self._cache)} 个数据集")
-    
-    def _load_all(self):
-        """加载所有元数据"""
-        try:
-            for metadata_file in self.metadata_dir.glob("*.json"):
-                with open(metadata_file, 'r', encoding='utf-8') as f:
-                    metadata_dict = json.load(f)
-                    dataset = DatasetMetadata(**metadata_dict)
-                    self._cache[dataset.id] = dataset
-        except Exception as e:
-            logger.error(f"加载元数据失败: {e}")
+        logger.info(f"混合存储仓储初始化完成，数据库: {db_path}")
     
     def save(self, dataset: DatasetMetadata) -> None:
         """保存数据集元数据
@@ -47,23 +47,63 @@ class DatasetRepository:
             dataset: 数据集元数据
         """
         try:
-            # 更新缓存
+            # 1. 保存结构化数据到SQLite
+            self.db_repository.save_dataset(dataset)
+            
+            # 2. 保存分析结果到JSON文件（如果有的话）
+            self._save_analysis_results_to_json(dataset)
+            
+            # 3. 更新内存缓存
             self._cache[dataset.id] = dataset
             
-            # 保存到文件
-            metadata_file = self.metadata_dir / f"{dataset.id}.json"
-            with open(metadata_file, 'w', encoding='utf-8') as f:
-                json.dump(
-                    dataset.model_dump(mode='json'), 
-                    f, 
-                    ensure_ascii=False, 
-                    indent=2,
-                    default=str
-                )
-            logger.debug(f"元数据已保存: {metadata_file}")
+            logger.debug(f"数据集元数据已保存（混合存储）: {dataset.id}")
+            
         except Exception as e:
-            logger.error(f"保存元数据失败: {e}")
+            logger.error(f"保存数据集元数据失败: {e}")
             raise
+    
+    def _save_analysis_results_to_json(self, dataset: DatasetMetadata) -> None:
+        """保存分析结果到JSON文件
+        
+        Args:
+            dataset: 数据集元数据
+        """
+        try:
+            # 提取分析结果
+            analysis_results = {
+                "device_time_identification": dataset.device_time_identification,
+                "business_meaning_analysis": dataset.business_meaning_analysis,
+                "control_relationships_analysis": dataset.control_relationships_analysis,
+                "basic_analysis": dataset.basic_analysis,
+                "detailed_analysis": dataset.detailed_analysis,
+                "insights": dataset.insights,
+                "recommendations": dataset.recommendations
+            }
+            
+            # 只有当有分析结果时才保存JSON文件
+            if any(analysis_results.values()):
+                json_file = self.json_dir / f"{dataset.id}_analysis.json"
+                
+                with open(json_file, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        "dataset_id": dataset.id,
+                        "dataset_name": dataset.name,
+                        "analysis_timestamp": datetime.now().isoformat(),
+                        "analysis_results": analysis_results
+                    }, f, ensure_ascii=False, indent=2, default=str)
+                
+                # 在数据库中记录分析结果文件引用
+                self.db_repository.save_analysis_result(
+                    dataset_id=dataset.id,
+                    analysis_type="industrial_analysis",
+                    result_file_path=str(json_file)
+                )
+                
+                logger.debug(f"分析结果已保存到JSON: {json_file}")
+                
+        except Exception as e:
+            logger.warning(f"保存分析结果到JSON失败: {e}")
+            # 不影响主流程
     
     def get_by_id(self, dataset_id: str) -> Optional[DatasetMetadata]:
         """根据ID获取数据集
@@ -74,7 +114,58 @@ class DatasetRepository:
         Returns:
             Optional[DatasetMetadata]: 数据集元数据
         """
-        return self._cache.get(dataset_id)
+        try:
+            # 1. 先检查内存缓存
+            if dataset_id in self._cache:
+                return self._cache[dataset_id]
+            
+            # 2. 从SQLite获取基本元数据
+            dataset = self.db_repository.get_dataset_by_id(dataset_id)
+            
+            if not dataset:
+                return None
+            
+            # 3. 从JSON文件加载分析结果
+            self._load_analysis_results_from_json(dataset)
+            
+            # 4. 更新缓存
+            self._cache[dataset_id] = dataset
+            
+            return dataset
+            
+        except Exception as e:
+            logger.error(f"获取数据集失败: {e}")
+            return None
+    
+    def _load_analysis_results_from_json(self, dataset: DatasetMetadata) -> None:
+        """从JSON文件加载分析结果
+        
+        Args:
+            dataset: 数据集元数据
+        """
+        try:
+            json_file = self.json_dir / f"{dataset.id}_analysis.json"
+            
+            if json_file.exists():
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                analysis_results = data.get("analysis_results", {})
+                
+                # 将分析结果加载到数据集对象中
+                dataset.device_time_identification = analysis_results.get("device_time_identification")
+                dataset.business_meaning_analysis = analysis_results.get("business_meaning_analysis")
+                dataset.control_relationships_analysis = analysis_results.get("control_relationships_analysis")
+                dataset.basic_analysis = analysis_results.get("basic_analysis")
+                dataset.detailed_analysis = analysis_results.get("detailed_analysis")
+                dataset.insights = analysis_results.get("insights", [])
+                dataset.recommendations = analysis_results.get("recommendations")
+                
+                logger.debug(f"分析结果已从JSON加载: {json_file}")
+                
+        except Exception as e:
+            logger.warning(f"从JSON加载分析结果失败: {e}")
+            # 不影响主流程
     
     def list_all(self) -> List[DatasetMetadata]:
         """获取所有数据集
@@ -82,7 +173,48 @@ class DatasetRepository:
         Returns:
             List[DatasetMetadata]: 数据集列表
         """
-        return list(self._cache.values())
+        try:
+            # 从SQLite获取数据集列表（不包含分析结果，提高性能）
+            datasets = self.db_repository.list_datasets()
+            
+            # 对于列表页面，通常不需要加载完整的分析结果
+            # 如果需要，可以按需加载
+            
+            return datasets
+            
+        except Exception as e:
+            logger.error(f"列出数据集失败: {e}")
+            return []
+    
+    def list_with_filters(
+        self, 
+        limit: int = 100, 
+        offset: int = 0,
+        industry: Optional[str] = None,
+        tags: Optional[List[str]] = None
+    ) -> List[DatasetMetadata]:
+        """带筛选条件的数据集列表
+        
+        Args:
+            limit: 限制数量
+            offset: 偏移量
+            industry: 行业筛选
+            tags: 标签筛选
+            
+        Returns:
+            List[DatasetMetadata]: 数据集列表
+        """
+        try:
+            return self.db_repository.list_datasets(
+                limit=limit,
+                offset=offset,
+                industry=industry,
+                tags=tags
+            )
+            
+        except Exception as e:
+            logger.error(f"筛选数据集失败: {e}")
+            return []
     
     def delete(self, dataset_id: str) -> bool:
         """删除数据集
@@ -94,20 +226,26 @@ class DatasetRepository:
             bool: 是否删除成功
         """
         try:
-            # 从缓存中移除
+            # 1. 从SQLite删除
+            db_success = self.db_repository.delete_dataset(dataset_id)
+            
+            # 2. 删除JSON文件
+            json_file = self.json_dir / f"{dataset_id}_analysis.json"
+            if json_file.exists():
+                json_file.unlink()
+                logger.debug(f"分析结果JSON文件已删除: {json_file}")
+            
+            # 3. 从缓存中移除
             if dataset_id in self._cache:
                 del self._cache[dataset_id]
             
-            # 删除文件
-            metadata_file = self.metadata_dir / f"{dataset_id}.json"
-            if metadata_file.exists():
-                metadata_file.unlink()
+            if db_success:
+                logger.info(f"数据集删除成功（混合存储）: {dataset_id}")
             
-            logger.info(f"数据集元数据删除成功: {dataset_id}")
-            return True
+            return db_success
             
         except Exception as e:
-            logger.error(f"删除数据集元数据失败: {e}")
+            logger.error(f"删除数据集失败: {e}")
             return False
     
     def exists(self, dataset_id: str) -> bool:
@@ -119,7 +257,18 @@ class DatasetRepository:
         Returns:
             bool: 是否存在
         """
-        return dataset_id in self._cache
+        try:
+            # 检查缓存
+            if dataset_id in self._cache:
+                return True
+            
+            # 检查数据库
+            dataset = self.db_repository.get_dataset_by_id(dataset_id)
+            return dataset is not None
+            
+        except Exception as e:
+            logger.error(f"检查数据集存在性失败: {e}")
+            return False
     
     def update_status(self, dataset_id: str, status: str) -> None:
         """更新数据集状态
@@ -128,6 +277,60 @@ class DatasetRepository:
             dataset_id: 数据集ID
             status: 新状态
         """
-        if dataset_id in self._cache:
-            self._cache[dataset_id].processing_status = status
-            self.save(self._cache[dataset_id]) 
+        try:
+            # 更新缓存
+            if dataset_id in self._cache:
+                self._cache[dataset_id].processing_status = status
+                # 保存到数据库
+                self.save(self._cache[dataset_id])
+            else:
+                # 从数据库加载，更新状态，再保存
+                dataset = self.get_by_id(dataset_id)
+                if dataset:
+                    dataset.processing_status = status
+                    self.save(dataset)
+                    
+        except Exception as e:
+            logger.error(f"更新数据集状态失败: {e}")
+    
+    def get_statistics(self) -> Dict[str, any]:
+        """获取仓储统计信息
+        
+        Returns:
+            Dict[str, any]: 统计信息
+        """
+        try:
+            # 获取数据库统计
+            db_stats = self.db_repository.get_statistics()
+            
+            # 获取JSON文件统计
+            json_files = list(self.json_dir.glob("*_analysis.json"))
+            json_total_size = sum(f.stat().st_size for f in json_files)
+            
+            return {
+                **db_stats,
+                "json_analysis_files": len(json_files),
+                "json_total_size_mb": round(json_total_size / (1024 * 1024), 2),
+                "storage_strategy": "hybrid_sqlite_json",
+                "cache_size": len(self._cache)
+            }
+            
+        except Exception as e:
+            logger.error(f"获取统计信息失败: {e}")
+            return {}
+    
+    def clear_cache(self) -> None:
+        """清空内存缓存"""
+        self._cache.clear()
+        logger.info("内存缓存已清空")
+    
+    def get_analysis_results(self, dataset_id: str) -> List[Dict[str, any]]:
+        """获取数据集的分析结果列表
+        
+        Args:
+            dataset_id: 数据集ID
+            
+        Returns:
+            List[Dict[str, any]]: 分析结果列表
+        """
+        return self.db_repository.get_analysis_results(dataset_id) 
