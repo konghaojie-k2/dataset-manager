@@ -113,13 +113,29 @@ class MetadataService:
         """
         try:
             # 更新基本信息
-            dataset.description = extraction_result.get("dataset_description", "")
+            basic_info = extraction_result.get("basic_info", {})
+            dataset.description = extraction_result.get("dataset_description", basic_info.get("description", ""))
             dataset.time_range_start = extraction_result.get("time_range_start")
             dataset.time_range_end = extraction_result.get("time_range_end")
             dataset.sampling_rate = extraction_result.get("sampling_rate")
             
             # 更新列信息
             columns_metadata = extraction_result.get("columns_metadata", [])
+            if not columns_metadata and basic_info.get("columns"):
+                # 从basic_info中提取列信息
+                columns_metadata = []
+                for col_name in basic_info["columns"]:
+                    columns_metadata.append({
+                        "name": col_name,
+                        "dtype": "unknown",
+                        "business_meaning": f"列 {col_name}",
+                        "is_device_id": "id" in col_name.lower() or "device" in col_name.lower(),
+                        "is_timestamp": "time" in col_name.lower() or "date" in col_name.lower(),
+                        "null_count": 0,
+                        "unique_count": 0,
+                        "sample_values": []
+                    })
+            
             dataset.columns = [
                 ColumnMetadata(
                     name=col["name"],
@@ -139,11 +155,23 @@ class MetadataService:
             if quality_data:
                 dataset.quality_metrics = DataQualityMetrics(**quality_data)
             
+            # 更新工业数据分析结果
+            dataset.device_time_identification = extraction_result.get("device_time_identification")
+            dataset.business_meaning_analysis = extraction_result.get("business_meaning_analysis")
+            dataset.control_relationships_analysis = extraction_result.get("control_relationships_analysis")
+            dataset.basic_analysis = extraction_result.get("basic_analysis")
+            dataset.detailed_analysis = extraction_result.get("detailed_analysis")
+            dataset.insights = extraction_result.get("insights", [])
+            dataset.recommendations = extraction_result.get("recommendations")
+            
             # 更新建议的标签
-            dataset.tags = extraction_result.get("suggested_tags", [])
-            dataset.industry = extraction_result.get("suggested_industry")
-            dataset.analysis_domains = extraction_result.get("suggested_domains", [])
-            dataset.applicable_algorithms = extraction_result.get("suggested_algorithms", [])
+            suggested_tags = extraction_result.get("suggested_tags", [])
+            if not suggested_tags:
+                suggested_tags = dataset.tags or []
+            dataset.tags = suggested_tags
+            dataset.industry = extraction_result.get("suggested_industry", dataset.industry)
+            dataset.analysis_domains = extraction_result.get("suggested_domains", dataset.analysis_domains or [])
+            dataset.applicable_algorithms = extraction_result.get("suggested_algorithms", dataset.applicable_algorithms or [])
             
             # 更新状态
             dataset.processing_status = "metadata_extracted"

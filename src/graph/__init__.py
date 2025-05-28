@@ -18,11 +18,14 @@ from .state import (
 from .nodes import (
     AnalysisNodes,
     analysis_nodes,
-    load_data,
-    basic_analysis,
-    detailed_analysis,
-    generate_insights,
-    create_recommendations
+    load_data_node,
+    basic_analysis_node,
+    detailed_analysis_node,
+    generate_insights_node,
+    create_recommendations_node,
+    identify_device_time_columns_node,
+    analyze_business_meaning_node,
+    analyze_control_relationships_node
 )
 
 # 构建器相关
@@ -39,6 +42,7 @@ from .workflow import (
     run_full_analysis,
     run_quick_analysis,
     run_insight_analysis,
+    run_industrial_analysis,
     run_analysis_stream,
     clear_workflow_cache,
     get_available_workflows
@@ -55,11 +59,14 @@ __all__ = [
     # 节点
     "AnalysisNodes",
     "analysis_nodes",
-    "load_data",
-    "basic_analysis",
-    "detailed_analysis", 
-    "generate_insights",
-    "create_recommendations",
+    "load_data_node",
+    "basic_analysis_node",
+    "detailed_analysis_node", 
+    "generate_insights_node",
+    "create_recommendations_node",
+    "identify_device_time_columns_node",
+    "analyze_business_meaning_node",
+    "analyze_control_relationships_node",
     
     # 构建器
     "AnalysisWorkflowBuilder",
@@ -72,6 +79,7 @@ __all__ = [
     "run_full_analysis",
     "run_quick_analysis", 
     "run_insight_analysis",
+    "run_industrial_analysis",
     "run_analysis_stream",
     "clear_workflow_cache",
     "get_available_workflows",

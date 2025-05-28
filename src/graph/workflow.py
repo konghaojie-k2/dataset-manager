@@ -24,7 +24,7 @@ class DataAnalysisWorkflow:
         """初始化工作流
         
         Args:
-            workflow_type: 工作流类型 ("full", "quick", "insight", "custom")
+            workflow_type: 工作流类型 ("full", "quick", "insight", "industrial", "custom")
         """
         self.workflow_type = workflow_type
         self.builder = AnalysisWorkflowBuilder()
@@ -39,6 +39,8 @@ class DataAnalysisWorkflow:
             self.graph = self.builder.build_workflow()
         elif self.workflow_type == "quick":
             self.graph = self.builder.build_simple_workflow()
+        elif self.workflow_type == "industrial":
+            self.graph = self.builder.build_industrial_analysis_workflow()
         else:
             # 使用模板构建自定义工作流
             template = WorkflowTemplates.get_full_analysis_template()
@@ -46,6 +48,8 @@ class DataAnalysisWorkflow:
                 template = WorkflowTemplates.get_insight_focused_template()
             elif self.workflow_type == "quick":
                 template = WorkflowTemplates.get_quick_analysis_template()
+            elif self.workflow_type == "industrial":
+                template = WorkflowTemplates.get_industrial_analysis_template()
             
             self.graph = self.builder.build_custom_workflow(template)
     
@@ -249,7 +253,7 @@ async def run_insight_analysis(
     user_requirements: str = None,
     config: Dict[str, Any] = None
 ) -> AnalysisState:
-    """运行洞察导向数据分析
+    """运行洞察导向分析
     
     Args:
         file_path: 数据文件路径
@@ -262,6 +266,37 @@ async def run_insight_analysis(
         AnalysisState: 分析结果状态
     """
     workflow = get_workflow("insight")
+    return await workflow.run_analysis(
+        file_path=file_path,
+        dataset_name=dataset_name,
+        analysis_goals=analysis_goals,
+        user_requirements=user_requirements,
+        config=config
+    )
+
+
+async def run_industrial_analysis(
+    file_path: str,
+    dataset_name: str,
+    analysis_goals: list = None,
+    user_requirements: str = None,
+    config: Dict[str, Any] = None
+) -> AnalysisState:
+    """运行工业数据分析
+    
+    专门用于工业数据的设备识别、业务含义分析和控制原理分析
+    
+    Args:
+        file_path: 数据文件路径
+        dataset_name: 数据集名称
+        analysis_goals: 分析目标列表
+        user_requirements: 用户需求描述
+        config: 额外配置
+        
+    Returns:
+        AnalysisState: 分析结果状态
+    """
+    workflow = get_workflow("industrial")
     return await workflow.run_analysis(
         file_path=file_path,
         dataset_name=dataset_name,
@@ -304,10 +339,10 @@ async def run_analysis_stream(
 
 
 def clear_workflow_cache():
-    """清除工作流缓存"""
+    """清理工作流缓存"""
     global _workflow_instances
     _workflow_instances.clear()
-    logger.info("工作流缓存已清除")
+    logger.info("工作流缓存已清理")
 
 
 def get_available_workflows() -> Dict[str, str]:
@@ -317,7 +352,8 @@ def get_available_workflows() -> Dict[str, str]:
         Dict[str, str]: 工作流类型和描述的映射
     """
     return {
-        "full": "完整分析工作流 - 包含所有分析步骤",
-        "quick": "快速分析工作流 - 仅基础分析和建议",
-        "insight": "洞察导向工作流 - 专注于深度洞察生成"
+        "full": "完整数据分析工作流",
+        "quick": "快速数据分析工作流", 
+        "insight": "洞察导向分析工作流",
+        "industrial": "工业数据分析工作流"
     } 

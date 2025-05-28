@@ -14,6 +14,7 @@ from ..schemas.dataset import (
 from .dataset_repository import DatasetRepository
 from .file_service import FileService
 from .metadata_service import MetadataService
+from ..graph.workflow import run_industrial_analysis
 
 
 class DatasetService:
@@ -108,28 +109,59 @@ class DatasetService:
             
             # 4. 使用第一个CSV文件进行分析
             csv_file = csv_files[0]
-            df = self.file_service.load_csv_data(csv_file)
             
-            # 5. 提取元数据
-            extraction_result = await self.metadata_service.extract_metadata(
-                dataset_id=dataset_id,
-                file_path=csv_file,
-                dataframe=df,
-                user_input=user_input
+            # 5. 使用工业数据分析工作流进行完整分析
+            logger.info(f"开始工业数据分析工作流: {dataset_id}")
+            
+            analysis_result = await run_industrial_analysis(
+                file_path=str(csv_file),
+                dataset_name=dataset.name or f"数据集_{dataset_id}",
+                analysis_goals=["设备列识别", "业务含义分析", "控制原理分析"],
+                user_requirements=user_input,
+                config={
+                    "dataset_id": dataset_id,
+                    "enable_detailed_logging": True
+                }
             )
             
-            # 6. 更新数据集元数据
+            # 6. 提取分析结果
+            extraction_result = {
+                "basic_info": analysis_result.get("data_info", {}),
+                "statistical_summary": analysis_result.get("statistical_summary", {}),
+                "device_time_identification": analysis_result.get("device_time_identification", ""),
+                "business_meaning_analysis": analysis_result.get("business_meaning_analysis", ""),
+                "control_relationships_analysis": analysis_result.get("control_relationships_analysis", ""),
+                "basic_analysis": analysis_result.get("basic_analysis", ""),
+                "detailed_analysis": analysis_result.get("detailed_analysis", ""),
+                "insights": analysis_result.get("insights", []),
+                "recommendations": analysis_result.get("recommendations", ""),
+                "column_analyses": analysis_result.get("column_analyses", {}),
+                "completed_steps": analysis_result.get("completed_steps", []),
+                "errors": analysis_result.get("errors", [])
+            }
+            
+            # 7. 更新数据集元数据
             updated_dataset = self.metadata_service.update_dataset_metadata(dataset, extraction_result)
+            
+            # 8. 添加工业分析特定的元数据
+            if extraction_result.get("device_time_identification"):
+                updated_dataset.tags = updated_dataset.tags or []
+                if "工业数据" not in updated_dataset.tags:
+                    updated_dataset.tags.append("工业数据")
+                if "设备监控" not in updated_dataset.tags:
+                    updated_dataset.tags.append("设备监控")
+            
+            # 9. 保存更新后的数据集
             self.repository.save(updated_dataset)
             
-            # 7. 清理临时文件
+            # 10. 清理临时文件
             self.file_service.file_processor.cleanup_extracted_files(file_path)
             
-            logger.info(f"元数据提取完成: {dataset_id}")
+            logger.info(f"工业数据分析完成: {dataset_id}")
             return extraction_result
             
         except Exception as e:
-            logger.error(f"元数据提取失败: {e}")
+            logger.error(f"工业数据分析失败: {e}")
             # 更新状态为失败
             if self.repository.exists(dataset_id):
                 self.repository.update_status(dataset_id, "extraction_failed")

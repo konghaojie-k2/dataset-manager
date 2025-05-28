@@ -11,11 +11,14 @@ from loguru import logger
 
 from .state import AnalysisState
 from .nodes import (
-    load_data,
-    basic_analysis,
-    detailed_analysis,
-    generate_insights,
-    create_recommendations
+    load_data_node,
+    basic_analysis_node,
+    detailed_analysis_node,
+    generate_insights_node,
+    create_recommendations_node,
+    identify_device_time_columns_node,
+    analyze_business_meaning_node,
+    analyze_control_relationships_node
 )
 
 
@@ -40,21 +43,21 @@ class AnalysisWorkflowBuilder:
         workflow = StateGraph(AnalysisState)
         
         # 添加节点
-        workflow.add_node("load_data", load_data)
-        workflow.add_node("basic_analysis", basic_analysis)
-        workflow.add_node("detailed_analysis", detailed_analysis)
-        workflow.add_node("generate_insights", generate_insights)
-        workflow.add_node("create_recommendations", create_recommendations)
+        workflow.add_node("load_data_step", load_data_node)
+        workflow.add_node("basic_analysis_step", basic_analysis_node)
+        workflow.add_node("detailed_analysis_step", detailed_analysis_node)
+        workflow.add_node("generate_insights_step", generate_insights_node)
+        workflow.add_node("create_recommendations_step", create_recommendations_node)
         
         # 设置入口点
-        workflow.set_entry_point("load_data")
+        workflow.set_entry_point("load_data_step")
         
         # 添加边（定义节点之间的连接）
-        workflow.add_edge("load_data", "basic_analysis")
-        workflow.add_edge("basic_analysis", "detailed_analysis")
-        workflow.add_edge("detailed_analysis", "generate_insights")
-        workflow.add_edge("generate_insights", "create_recommendations")
-        workflow.add_edge("create_recommendations", END)
+        workflow.add_edge("load_data_step", "basic_analysis_step")
+        workflow.add_edge("basic_analysis_step", "detailed_analysis_step")
+        workflow.add_edge("detailed_analysis_step", "generate_insights_step")
+        workflow.add_edge("generate_insights_step", "create_recommendations_step")
+        workflow.add_edge("create_recommendations_step", END)
         
         # 编译工作流
         self.graph = workflow.compile(checkpointer=self.checkpointer)
@@ -74,17 +77,17 @@ class AnalysisWorkflowBuilder:
         workflow = StateGraph(AnalysisState)
         
         # 添加节点
-        workflow.add_node("load_data", load_data)
-        workflow.add_node("basic_analysis", basic_analysis)
-        workflow.add_node("create_recommendations", create_recommendations)
+        workflow.add_node("load_data_step", load_data_node)
+        workflow.add_node("basic_analysis_step", basic_analysis_node)
+        workflow.add_node("create_recommendations_step", create_recommendations_node)
         
         # 设置入口点
-        workflow.set_entry_point("load_data")
+        workflow.set_entry_point("load_data_step")
         
         # 添加边
-        workflow.add_edge("load_data", "basic_analysis")
-        workflow.add_edge("basic_analysis", "create_recommendations")
-        workflow.add_edge("create_recommendations", END)
+        workflow.add_edge("load_data_step", "basic_analysis_step")
+        workflow.add_edge("basic_analysis_step", "create_recommendations_step")
+        workflow.add_edge("create_recommendations_step", END)
         
         # 编译工作流
         self.graph = workflow.compile(checkpointer=self.checkpointer)
@@ -92,153 +95,223 @@ class AnalysisWorkflowBuilder:
         logger.info("简化分析工作流构建完成")
         return self.graph
     
-    def build_custom_workflow(self, nodes_config: Dict[str, Any]) -> StateGraph:
-        """构建自定义工作流
+    def build_custom_workflow(self, template: Dict[str, Any]) -> StateGraph:
+        """根据模板构建自定义工作流
         
         Args:
-            nodes_config: 节点配置，包含要包含的节点和连接关系
+            template: 工作流模板
             
         Returns:
-            StateGraph: 编译后的自定义工作流图
+            StateGraph: 编译后的工作流图
         """
-        logger.info("开始构建自定义分析工作流")
+        try:
+            logger.info(f"开始构建自定义工作流: {template.get('name', 'Unknown')}")
+            
+            # 创建状态图
+            workflow = StateGraph(AnalysisState)
+            
+            # 添加节点
+            for node_name, node_func in template["nodes"].items():
+                workflow.add_node(node_name, node_func)
+            
+            # 添加边
+            for edge in template["edges"]:
+                if len(edge) == 2:
+                    workflow.add_edge(edge[0], edge[1])
+                elif len(edge) == 3:
+                    workflow.add_conditional_edges(edge[0], edge[1], edge[2])
+            
+            # 设置入口点
+            workflow.set_entry_point(template["entry_point"])
+            
+            # 设置结束点
+            for finish_node in template["finish_nodes"]:
+                workflow.add_edge(finish_node, END)
+            
+            # 编译工作流
+            compiled_workflow = workflow.compile(
+                checkpointer=self.checkpointer,
+                interrupt_before=template.get("interrupt_before", []),
+                interrupt_after=template.get("interrupt_after", [])
+            )
+            
+            logger.info("自定义工作流构建完成")
+            return compiled_workflow
+            
+        except Exception as e:
+            logger.error(f"自定义工作流构建失败: {e}")
+            raise
+
+    def build_industrial_analysis_workflow(self) -> StateGraph:
+        """构建工业数据分析工作流
         
-        # 创建状态图
-        workflow = StateGraph(AnalysisState)
-        
-        # 可用节点映射
-        available_nodes = {
-            "load_data": load_data,
-            "basic_analysis": basic_analysis,
-            "detailed_analysis": detailed_analysis,
-            "generate_insights": generate_insights,
-            "create_recommendations": create_recommendations
-        }
-        
-        # 添加配置中指定的节点
-        nodes_to_add = nodes_config.get("nodes", ["load_data", "basic_analysis", "create_recommendations"])
-        for node_name in nodes_to_add:
-            if node_name in available_nodes:
-                workflow.add_node(node_name, available_nodes[node_name])
-                logger.debug(f"添加节点: {node_name}")
-        
-        # 设置入口点
-        entry_point = nodes_config.get("entry_point", "load_data")
-        workflow.set_entry_point(entry_point)
-        
-        # 添加边
-        edges = nodes_config.get("edges", [])
-        for edge in edges:
-            if len(edge) == 2:
-                from_node, to_node = edge
-                if to_node == "END":
-                    workflow.add_edge(from_node, END)
-                else:
-                    workflow.add_edge(from_node, to_node)
-                logger.debug(f"添加边: {from_node} -> {to_node}")
-        
-        # 编译工作流
-        self.graph = workflow.compile(checkpointer=self.checkpointer)
-        
-        logger.info("自定义分析工作流构建完成")
-        return self.graph
-    
-    def get_workflow_info(self) -> Dict[str, Any]:
-        """获取工作流信息
+        专门用于工业数据的设备识别、业务含义分析和控制原理分析
         
         Returns:
-            Dict[str, Any]: 工作流信息
+            StateGraph: 编译后的工作流图
         """
-        if not self.graph:
-            return {"status": "未构建", "nodes": [], "edges": []}
+        try:
+            logger.info("开始构建工业数据分析工作流")
+            
+            # 创建状态图
+            workflow = StateGraph(AnalysisState)
+            
+            # 添加节点
+            workflow.add_node("load_data_step", load_data_node)
+            workflow.add_node("basic_analysis_step", basic_analysis_node)
+            workflow.add_node("detailed_analysis_step", detailed_analysis_node)
+            workflow.add_node("identify_device_time_columns_step", identify_device_time_columns_node)
+            workflow.add_node("analyze_business_meaning_step", analyze_business_meaning_node)
+            workflow.add_node("analyze_control_relationships_step", analyze_control_relationships_node)
+            workflow.add_node("generate_insights_step", generate_insights_node)
+            workflow.add_node("create_recommendations_step", create_recommendations_node)
+            
+            # 设置工作流路径
+            workflow.set_entry_point("load_data_step")
+            
+            # 添加边 - 顺序执行
+            workflow.add_edge("load_data_step", "basic_analysis_step")
+            workflow.add_edge("basic_analysis_step", "detailed_analysis_step")
+            workflow.add_edge("detailed_analysis_step", "identify_device_time_columns_step")
+            workflow.add_edge("identify_device_time_columns_step", "analyze_business_meaning_step")
+            workflow.add_edge("analyze_business_meaning_step", "analyze_control_relationships_step")
+            workflow.add_edge("analyze_control_relationships_step", "generate_insights_step")
+            workflow.add_edge("generate_insights_step", "create_recommendations_step")
+            
+            # 设置结束点
+            workflow.add_edge("create_recommendations_step", END)
+            
+            # 编译工作流
+            compiled_workflow = workflow.compile(
+                checkpointer=self.checkpointer,
+                interrupt_before=[],
+                interrupt_after=[]
+            )
+            
+            logger.info("工业数据分析工作流构建完成")
+            return compiled_workflow
+            
+        except Exception as e:
+            logger.error(f"工业数据分析工作流构建失败: {e}")
+            raise
+
+    def get_workflow_info(self) -> Dict[str, Any]:
+        """获取工作流构建器信息
         
-        # 获取图的基本信息
-        nodes = list(self.graph.nodes.keys()) if hasattr(self.graph, 'nodes') else []
-        
+        Returns:
+            Dict[str, Any]: 构建器信息
+        """
         return {
-            "status": "已构建",
-            "nodes": nodes,
-            "checkpointer": "MemorySaver",
-            "compiled": True
+            "available_workflows": [
+                "full_analysis",
+                "simple_analysis", 
+                "custom_analysis",
+                "industrial_analysis"
+            ],
+            "checkpointer_enabled": self.checkpointer is not None,
+            "default_config": {
+                "max_iterations": 100,
+                "timeout": 3600
+            }
         }
 
 
 class WorkflowTemplates:
-    """工作流模板类"""
+    """工作流模板类
+    
+    提供预定义的工作流模板
+    """
     
     @staticmethod
     def get_full_analysis_template() -> Dict[str, Any]:
-        """获取完整分析模板配置
-        
-        Returns:
-            Dict[str, Any]: 完整分析工作流配置
-        """
+        """获取完整分析模板"""
         return {
-            "name": "完整分析工作流",
-            "description": "包含所有分析步骤的完整工作流",
-            "nodes": [
-                "load_data",
-                "basic_analysis", 
-                "detailed_analysis",
-                "generate_insights",
-                "create_recommendations"
-            ],
-            "entry_point": "load_data",
+            "name": "full_analysis",
+            "description": "完整的数据分析工作流",
+            "nodes": {
+                "load_data_step": load_data_node,
+                "basic_analysis_step": basic_analysis_node,
+                "detailed_analysis_step": detailed_analysis_node,
+                "generate_insights_step": generate_insights_node,
+                "create_recommendations_step": create_recommendations_node
+            },
             "edges": [
-                ("load_data", "basic_analysis"),
-                ("basic_analysis", "detailed_analysis"),
-                ("detailed_analysis", "generate_insights"),
-                ("generate_insights", "create_recommendations"),
-                ("create_recommendations", "END")
-            ]
+                ("load_data_step", "basic_analysis_step"),
+                ("basic_analysis_step", "detailed_analysis_step"),
+                ("detailed_analysis_step", "generate_insights_step"),
+                ("generate_insights_step", "create_recommendations_step")
+            ],
+            "entry_point": "load_data_step",
+            "finish_nodes": ["create_recommendations_step"]
         }
     
     @staticmethod
     def get_quick_analysis_template() -> Dict[str, Any]:
-        """获取快速分析模板配置
-        
-        Returns:
-            Dict[str, Any]: 快速分析工作流配置
-        """
+        """获取快速分析模板"""
         return {
-            "name": "快速分析工作流",
-            "description": "仅包含基础分析的快速工作流",
-            "nodes": [
-                "load_data",
-                "basic_analysis",
-                "create_recommendations"
-            ],
-            "entry_point": "load_data",
+            "name": "quick_analysis",
+            "description": "快速数据分析工作流",
+            "nodes": {
+                "load_data_step": load_data_node,
+                "basic_analysis_step": basic_analysis_node,
+                "generate_insights_step": generate_insights_node
+            },
             "edges": [
-                ("load_data", "basic_analysis"),
-                ("basic_analysis", "create_recommendations"),
-                ("create_recommendations", "END")
-            ]
+                ("load_data_step", "basic_analysis_step"),
+                ("basic_analysis_step", "generate_insights_step")
+            ],
+            "entry_point": "load_data_step",
+            "finish_nodes": ["generate_insights_step"]
         }
     
     @staticmethod
     def get_insight_focused_template() -> Dict[str, Any]:
-        """获取洞察导向模板配置
-        
-        Returns:
-            Dict[str, Any]: 洞察导向工作流配置
-        """
+        """获取洞察导向模板"""
         return {
-            "name": "洞察导向工作流",
-            "description": "专注于深度洞察生成的工作流",
-            "nodes": [
-                "load_data",
-                "detailed_analysis",
-                "generate_insights",
-                "create_recommendations"
-            ],
-            "entry_point": "load_data",
+            "name": "insight_focused",
+            "description": "专注于洞察生成的工作流",
+            "nodes": {
+                "load_data_step": load_data_node,
+                "basic_analysis_step": basic_analysis_node,
+                "detailed_analysis_step": detailed_analysis_node,
+                "generate_insights_step": generate_insights_node
+            },
             "edges": [
-                ("load_data", "detailed_analysis"),
-                ("detailed_analysis", "generate_insights"),
-                ("generate_insights", "create_recommendations"),
-                ("create_recommendations", "END")
-            ]
+                ("load_data_step", "basic_analysis_step"),
+                ("basic_analysis_step", "detailed_analysis_step"),
+                ("detailed_analysis_step", "generate_insights_step")
+            ],
+            "entry_point": "load_data_step",
+            "finish_nodes": ["generate_insights_step"]
+        }
+
+    @staticmethod
+    def get_industrial_analysis_template() -> Dict[str, Any]:
+        """获取工业数据分析模板"""
+        return {
+            "name": "industrial_analysis",
+            "description": "专门用于工业数据的分析工作流",
+            "nodes": {
+                "load_data_step": load_data_node,
+                "basic_analysis_step": basic_analysis_node,
+                "detailed_analysis_step": detailed_analysis_node,
+                "identify_device_time_columns_step": identify_device_time_columns_node,
+                "analyze_business_meaning_step": analyze_business_meaning_node,
+                "analyze_control_relationships_step": analyze_control_relationships_node,
+                "generate_insights_step": generate_insights_node,
+                "create_recommendations_step": create_recommendations_node
+            },
+            "edges": [
+                ("load_data_step", "basic_analysis_step"),
+                ("basic_analysis_step", "detailed_analysis_step"),
+                ("detailed_analysis_step", "identify_device_time_columns_step"),
+                ("identify_device_time_columns_step", "analyze_business_meaning_step"),
+                ("analyze_business_meaning_step", "analyze_control_relationships_step"),
+                ("analyze_control_relationships_step", "generate_insights_step"),
+                ("generate_insights_step", "create_recommendations_step")
+            ],
+            "entry_point": "load_data_step",
+            "finish_nodes": ["create_recommendations_step"]
         }
 
 

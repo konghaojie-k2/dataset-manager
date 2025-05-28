@@ -43,6 +43,12 @@ class AnalysisState(TypedDict):
     recommendations: Optional[str]
     executive_summary: Optional[str]  # 执行摘要
     
+    # 工业数据分析结果
+    device_time_identification: Optional[str]  # 设备列和时间列识别结果
+    business_meaning_analysis: Optional[str]   # 业务含义分析结果
+    control_relationships_analysis: Optional[str]  # 控制原理分析结果
+    correlation_analysis: Optional[Dict[str, Any]]  # 相关性分析结果
+    
     # 可视化相关
     visualizations: Optional[List[Dict[str, Any]]]
     chart_suggestions: Optional[List[str]]
@@ -157,6 +163,12 @@ def create_initial_state(
         insights=None,
         recommendations=None,
         executive_summary=None,
+        
+        # 工业数据分析结果
+        device_time_identification=None,
+        business_meaning_analysis=None,
+        control_relationships_analysis=None,
+        correlation_analysis=None,
         
         # 可视化相关
         visualizations=None,

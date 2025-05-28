@@ -56,6 +56,15 @@ class DatasetMetadata(BaseModel):
     # 数据质量
     quality_metrics: Optional[DataQualityMetrics] = Field(None, description="数据质量指标")
     
+    # 工业数据分析结果
+    device_time_identification: Optional[str] = Field(None, description="设备列和时间列识别结果")
+    business_meaning_analysis: Optional[str] = Field(None, description="业务含义分析结果")
+    control_relationships_analysis: Optional[str] = Field(None, description="控制原理分析结果")
+    basic_analysis: Optional[str] = Field(None, description="基础分析结果")
+    detailed_analysis: Optional[str] = Field(None, description="详细分析结果")
+    insights: List[str] = Field(default_factory=list, description="数据洞察")
+    recommendations: Optional[str] = Field(None, description="分析建议")
+    
     # 状态
     processing_status: str = Field(default="uploaded", description="处理状态")
     metadata_extracted: bool = Field(default=False, description="元数据是否已提取")

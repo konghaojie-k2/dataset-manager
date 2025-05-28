@@ -195,6 +195,53 @@ async def update_dataset_tags(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/datasets/{dataset_id}/industrial-analysis")
+async def get_industrial_analysis(
+    dataset_id: str,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """获取工业数据分析结果
+    
+    Args:
+        dataset_id: 数据集ID
+        service: 数据集服务
+        
+    Returns:
+        dict: 工业数据分析结果
+    """
+    try:
+        dataset = service.get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="数据集不存在")
+        
+        # 构建工业分析结果
+        industrial_analysis = {
+            "dataset_id": dataset_id,
+            "dataset_name": dataset.name,
+            "processing_status": dataset.processing_status,
+            "device_time_identification": dataset.device_time_identification,
+            "business_meaning_analysis": dataset.business_meaning_analysis,
+            "control_relationships_analysis": dataset.control_relationships_analysis,
+            "basic_analysis": dataset.basic_analysis,
+            "detailed_analysis": dataset.detailed_analysis,
+            "insights": dataset.insights,
+            "recommendations": dataset.recommendations,
+            "analysis_completed": all([
+                dataset.device_time_identification,
+                dataset.business_meaning_analysis,
+                dataset.control_relationships_analysis
+            ])
+        }
+        
+        return industrial_analysis
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取工业数据分析结果失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/datasets/{dataset_id}")
 async def delete_dataset(
     dataset_id: str,
