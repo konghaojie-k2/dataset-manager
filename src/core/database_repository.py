@@ -346,7 +346,27 @@ class DatabaseRepository:
                 
                 datasets = []
                 for row in dataset_rows:
-                    # 简化版本，只返回基本信息，不加载列和质量数据
+                    # 获取该数据集的列数量（用于前端显示）
+                    cursor.execute("SELECT COUNT(*) FROM columns WHERE dataset_id = ?", (row['id'],))
+                    column_count = cursor.fetchone()[0]
+                    
+                    # 如果有列数据，创建简化的列信息（只包含名称，用于计数）
+                    columns = []
+                    if column_count > 0:
+                        cursor.execute("SELECT name, data_type FROM columns WHERE dataset_id = ? ORDER BY name", (row['id'],))
+                        column_rows = cursor.fetchall()
+                        for col_row in column_rows:
+                            columns.append(ColumnMetadata(
+                                name=col_row['name'],
+                                data_type=col_row['data_type'],
+                                business_meaning="",  # 列表页面不加载详细信息
+                                is_device_id=False,
+                                is_timestamp=False,
+                                null_count=0,
+                                unique_count=0,
+                                sample_values=[]
+                            ))
+                    
                     dataset = DatasetMetadata(
                         id=row['id'],
                         name=row['name'],
@@ -357,7 +377,7 @@ class DatabaseRepository:
                         time_range_start=datetime.fromisoformat(row['time_range_start']) if row['time_range_start'] else None,
                         time_range_end=datetime.fromisoformat(row['time_range_end']) if row['time_range_end'] else None,
                         sampling_rate=row['sampling_rate'],
-                        columns=[],  # 列表页面不加载详细列信息
+                        columns=columns,  # 使用加载的列信息
                         tags=json.loads(row['tags']) if row['tags'] else [],
                         industry=row['industry'],
                         analysis_domains=json.loads(row['analysis_domains']) if row['analysis_domains'] else [],

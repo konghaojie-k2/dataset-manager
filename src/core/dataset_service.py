@@ -9,7 +9,8 @@ from loguru import logger
 from ..schemas.dataset import (
     DatasetMetadata, 
     MetadataExtractionRequest,
-    TagUpdateRequest
+    TagUpdateRequest,
+    ColumnMetadata
 )
 from .dataset_repository import DatasetRepository
 from .file_service import FileService
@@ -56,7 +57,37 @@ class DatasetService:
             # 1. 上传文件
             file_id, file_path, file_info = await self.file_service.upload_file(file)
             
-            # 2. 创建数据集元数据
+            # 2. 获取基础列信息（用于前端显示）
+            basic_columns = []
+            try:
+                # 尝试提取CSV文件并获取列信息
+                csv_files = self.file_service.extract_csv_files(file_path)
+                if csv_files:
+                    # 只读取前几行来获取列名，不加载全部数据
+                    df_sample = self.file_service.load_csv_data(csv_files[0], sample_rows=5)
+                    if df_sample is not None:
+                        # 创建基础的ColumnMetadata对象
+                        for col_name in df_sample.columns:
+                            basic_columns.append(ColumnMetadata(
+                                name=col_name,
+                                data_type=str(df_sample[col_name].dtype),
+                                business_meaning="",  # 业务分析时填充
+                                is_device_id=False,  # 业务分析时确定
+                                is_timestamp=False,  # 业务分析时确定
+                                null_count=0,  # 业务分析时计算
+                                unique_count=0,  # 业务分析时计算
+                                sample_values=[]  # 业务分析时填充
+                            ))
+                        logger.info(f"成功获取基础列信息: {len(basic_columns)} 列")
+                    
+                    # 清理临时文件
+                    self.file_service.file_processor.cleanup_extracted_files(file_path)
+                        
+            except Exception as e:
+                logger.warning(f"获取基础列信息失败: {e}")
+                # 不影响上传流程，继续执行
+            
+            # 3. 创建数据集元数据
             dataset = DatasetMetadata(
                 id=file_id,
                 name=file.filename,
@@ -64,11 +95,11 @@ class DatasetService:
                 file_path=str(file_path),
                 file_size=file_info['file_size'],
                 upload_time=datetime.now(),
-                columns=[],
+                columns=basic_columns,  # 使用获取到的基础列信息
                 processing_status="uploaded"
             )
             
-            # 3. 保存初始元数据
+            # 4. 保存初始元数据
             self.repository.save(dataset)
             
             logger.info(f"数据集上传成功: {dataset.id}")
@@ -132,6 +163,29 @@ class DatasetService:
                 "completed_steps": analysis_result.get("completed_steps", []),
                 "errors": analysis_result.get("errors", [])
             }
+            
+            # 从data_info中提取列信息并转换为columns_metadata格式
+            data_info = extraction_result.get("basic_info", {})
+            if data_info and "columns" in data_info:
+                columns_metadata = []
+                for col_name in data_info["columns"]:
+                    # 从dtypes中获取数据类型
+                    dtype = data_info.get("dtypes", {}).get(col_name, "unknown")
+                    null_count = data_info.get("null_counts", {}).get(col_name, 0)
+                    
+                    columns_metadata.append({
+                        "name": col_name,
+                        "dtype": dtype,
+                        "business_meaning": f"列 {col_name}",
+                        "is_device_id": "id" in col_name.lower() or "device" in col_name.lower(),
+                        "is_timestamp": "time" in col_name.lower() or "date" in col_name.lower(),
+                        "null_count": null_count,
+                        "unique_count": 0,  # 暂时设为0，可以从column_analyses中获取
+                        "sample_values": []
+                    })
+                
+                # 添加columns_metadata到extraction_result
+                extraction_result["columns_metadata"] = columns_metadata
             
             # 6. 更新数据集元数据
             updated_dataset = self.metadata_service.update_dataset_metadata(dataset, extraction_result)
@@ -351,6 +405,29 @@ class DatasetService:
                 "completed_steps": analysis_result.get("completed_steps", []),
                 "errors": analysis_result.get("errors", [])
             }
+            
+            # 从data_info中提取列信息并转换为columns_metadata格式
+            data_info = extraction_result.get("basic_info", {})
+            if data_info and "columns" in data_info:
+                columns_metadata = []
+                for col_name in data_info["columns"]:
+                    # 从dtypes中获取数据类型
+                    dtype = data_info.get("dtypes", {}).get(col_name, "unknown")
+                    null_count = data_info.get("null_counts", {}).get(col_name, 0)
+                    
+                    columns_metadata.append({
+                        "name": col_name,
+                        "dtype": dtype,
+                        "business_meaning": f"列 {col_name}",
+                        "is_device_id": "id" in col_name.lower() or "device" in col_name.lower(),
+                        "is_timestamp": "time" in col_name.lower() or "date" in col_name.lower(),
+                        "null_count": null_count,
+                        "unique_count": 0,  # 暂时设为0，可以从column_analyses中获取
+                        "sample_values": []
+                    })
+                
+                # 添加columns_metadata到extraction_result
+                extraction_result["columns_metadata"] = columns_metadata
             
             # 更新数据集元数据
             updated_dataset = self.metadata_service.update_dataset_metadata(dataset, extraction_result)
