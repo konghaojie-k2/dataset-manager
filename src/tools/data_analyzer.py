@@ -51,10 +51,10 @@ class DataAnalyzer:
         info = {
             "shape": self.data.shape,
             "columns": list(self.data.columns),
-            "dtypes": self.data.dtypes.to_dict(),
-            "memory_usage": self.data.memory_usage(deep=True).sum(),
-            "null_counts": self.data.isnull().sum().to_dict(),
-            "null_percentages": (self.data.isnull().sum() / len(self.data) * 100).to_dict()
+            "dtypes": {col: str(dtype) for col, dtype in self.data.dtypes.to_dict().items()},
+            "memory_usage": int(self.data.memory_usage(deep=True).sum()),
+            "null_counts": {col: int(count) for col, count in self.data.isnull().sum().to_dict().items()},
+            "null_percentages": {col: float(pct) for col, pct in (self.data.isnull().sum() / len(self.data) * 100).to_dict().items()}
         }
         
         self.analysis_results["basic_info"] = info
@@ -74,23 +74,42 @@ class DataAnalyzer:
         numeric_summary = {}
         
         if len(numeric_cols) > 0:
-            numeric_summary = self.data[numeric_cols].describe().to_dict()
+            desc = self.data[numeric_cols].describe()
+            # 转换为Python原生类型
+            numeric_summary = {
+                col: {stat: float(val) if pd.notna(val) else None 
+                      for stat, val in desc[col].items()}
+                for col in desc.columns
+            }
         
         # 分类型列统计
         categorical_cols = self.data.select_dtypes(include=['object', 'category']).columns
         categorical_summary = {}
         
         for col in categorical_cols:
+            value_counts = self.data[col].value_counts().head(10)
+            mode_val = self.data[col].mode().iloc[0] if not self.data[col].mode().empty else None
+            
             categorical_summary[col] = {
-                "unique_count": self.data[col].nunique(),
-                "top_values": self.data[col].value_counts().head(10).to_dict(),
-                "mode": self.data[col].mode().iloc[0] if not self.data[col].mode().empty else None
+                "unique_count": int(self.data[col].nunique()),
+                "top_values": {str(k): int(v) for k, v in value_counts.to_dict().items()},
+                "mode": str(mode_val) if mode_val is not None else None
+            }
+        
+        # 相关性矩阵
+        correlation_matrix = {}
+        if len(numeric_cols) > 1:
+            corr = self.data[numeric_cols].corr()
+            correlation_matrix = {
+                col1: {col2: float(val) if pd.notna(val) else None 
+                       for col2, val in corr[col1].items()}
+                for col1 in corr.columns
             }
         
         summary = {
             "numeric_summary": numeric_summary,
             "categorical_summary": categorical_summary,
-            "correlation_matrix": self.data[numeric_cols].corr().to_dict() if len(numeric_cols) > 1 else {}
+            "correlation_matrix": correlation_matrix
         }
         
         self.analysis_results["statistical_summary"] = summary
@@ -126,9 +145,9 @@ class DataAnalyzer:
                 outlier_mask = z_scores > 3
             
             outliers[col] = {
-                "count": outlier_mask.sum(),
-                "percentage": (outlier_mask.sum() / len(self.data)) * 100,
-                "indices": self.data[outlier_mask].index.tolist()
+                "count": int(outlier_mask.sum()),
+                "percentage": float((outlier_mask.sum() / len(self.data)) * 100),
+                "indices": [int(idx) for idx in self.data[outlier_mask].index.tolist()]
             }
         
         self.analysis_results["outliers"] = outliers
@@ -145,9 +164,9 @@ class DataAnalyzer:
         
         quality_report = {
             "completeness": {
-                "total_cells": self.data.size,
-                "missing_cells": self.data.isnull().sum().sum(),
-                "completeness_rate": (1 - self.data.isnull().sum().sum() / self.data.size) * 100
+                "total_cells": int(self.data.size),
+                "missing_cells": int(self.data.isnull().sum().sum()),
+                "completeness_rate": float((1 - self.data.isnull().sum().sum() / self.data.size) * 100)
             },
             "uniqueness": {},
             "consistency": {},
@@ -158,9 +177,9 @@ class DataAnalyzer:
         for col in self.data.columns:
             unique_rate = self.data[col].nunique() / len(self.data) * 100
             quality_report["uniqueness"][col] = {
-                "unique_count": self.data[col].nunique(),
-                "unique_rate": unique_rate,
-                "is_potential_key": unique_rate > 95
+                "unique_count": int(self.data[col].nunique()),
+                "unique_rate": float(unique_rate),
+                "is_potential_key": bool(unique_rate > 95)
             }
         
         # 一致性分析（检查数据格式）
@@ -168,11 +187,11 @@ class DataAnalyzer:
             # 检查字符串长度变化
             str_lengths = self.data[col].dropna().astype(str).str.len()
             quality_report["consistency"][col] = {
-                "length_variance": str_lengths.var(),
-                "length_range": (str_lengths.min(), str_lengths.max()),
-                "has_mixed_case": self.data[col].dropna().astype(str).apply(
+                "length_variance": float(str_lengths.var()) if pd.notna(str_lengths.var()) else 0.0,
+                "length_range": (int(str_lengths.min()), int(str_lengths.max())),
+                "has_mixed_case": bool(self.data[col].dropna().astype(str).apply(
                     lambda x: x != x.lower() and x != x.upper()
-                ).any()
+                ).any())
             }
         
         self.analysis_results["data_quality"] = quality_report
@@ -198,32 +217,35 @@ class DataAnalyzer:
         analysis = {
             "name": column_name,
             "dtype": str(col_data.dtype),
-            "null_count": col_data.isnull().sum(),
-            "null_percentage": (col_data.isnull().sum() / len(col_data)) * 100,
-            "unique_count": col_data.nunique(),
-            "unique_percentage": (col_data.nunique() / len(col_data)) * 100,
-            "sample_values": col_data.dropna().head(10).tolist()
+            "null_count": int(col_data.isnull().sum()),
+            "null_percentage": float((col_data.isnull().sum() / len(col_data)) * 100),
+            "unique_count": int(col_data.nunique()),
+            "unique_percentage": float((col_data.nunique() / len(col_data)) * 100),
+            "sample_values": [str(val) for val in col_data.dropna().head(10).tolist()]
         }
         
         # 数值型列的额外分析
         if pd.api.types.is_numeric_dtype(col_data):
             analysis.update({
-                "mean": col_data.mean(),
-                "median": col_data.median(),
-                "std": col_data.std(),
-                "min": col_data.min(),
-                "max": col_data.max(),
-                "skewness": col_data.skew(),
-                "kurtosis": col_data.kurtosis()
+                "mean": float(col_data.mean()) if pd.notna(col_data.mean()) else None,
+                "median": float(col_data.median()) if pd.notna(col_data.median()) else None,
+                "std": float(col_data.std()) if pd.notna(col_data.std()) else None,
+                "min": float(col_data.min()) if pd.notna(col_data.min()) else None,
+                "max": float(col_data.max()) if pd.notna(col_data.max()) else None,
+                "skewness": float(col_data.skew()) if pd.notna(col_data.skew()) else None,
+                "kurtosis": float(col_data.kurtosis()) if pd.notna(col_data.kurtosis()) else None
             })
         
         # 分类型列的额外分析
         else:
             value_counts = col_data.value_counts()
+            mode_val = col_data.mode().iloc[0] if not col_data.mode().empty else None
+            avg_length = col_data.dropna().astype(str).str.len().mean()
+            
             analysis.update({
-                "top_values": value_counts.head(10).to_dict(),
-                "mode": col_data.mode().iloc[0] if not col_data.mode().empty else None,
-                "avg_length": col_data.dropna().astype(str).str.len().mean()
+                "top_values": {str(k): int(v) for k, v in value_counts.head(10).to_dict().items()},
+                "mode": str(mode_val) if mode_val is not None else None,
+                "avg_length": float(avg_length) if pd.notna(avg_length) else 0.0
             })
         
         return analysis

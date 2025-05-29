@@ -156,10 +156,8 @@ class AnalysisWorkflowBuilder:
             # 创建状态图
             workflow = StateGraph(AnalysisState)
             
-            # 添加节点
+            # 添加节点 - 只包含工业分析相关的节点
             workflow.add_node("load_data_step", load_data_node)
-            workflow.add_node("basic_analysis_step", basic_analysis_node)
-            workflow.add_node("detailed_analysis_step", detailed_analysis_node)
             workflow.add_node("identify_device_time_columns_step", identify_device_time_columns_node)
             workflow.add_node("analyze_business_meaning_step", analyze_business_meaning_node)
             workflow.add_node("analyze_control_relationships_step", analyze_control_relationships_node)
@@ -167,10 +165,8 @@ class AnalysisWorkflowBuilder:
             # 设置工作流路径
             workflow.set_entry_point("load_data_step")
             
-            # 添加边 - 顺序执行，移除建议生成步骤
-            workflow.add_edge("load_data_step", "basic_analysis_step")
-            workflow.add_edge("basic_analysis_step", "detailed_analysis_step")
-            workflow.add_edge("detailed_analysis_step", "identify_device_time_columns_step")
+            # 添加边 - 按照工业分析的正确流程
+            workflow.add_edge("load_data_step", "identify_device_time_columns_step")
             workflow.add_edge("identify_device_time_columns_step", "analyze_business_meaning_step")
             workflow.add_edge("analyze_business_meaning_step", "analyze_control_relationships_step")
             
@@ -289,16 +285,12 @@ class WorkflowTemplates:
             "description": "专门用于工业数据的分析工作流",
             "nodes": {
                 "load_data_step": load_data_node,
-                "basic_analysis_step": basic_analysis_node,
-                "detailed_analysis_step": detailed_analysis_node,
                 "identify_device_time_columns_step": identify_device_time_columns_node,
                 "analyze_business_meaning_step": analyze_business_meaning_node,
                 "analyze_control_relationships_step": analyze_control_relationships_node
             },
             "edges": [
-                ("load_data_step", "basic_analysis_step"),
-                ("basic_analysis_step", "detailed_analysis_step"),
-                ("detailed_analysis_step", "identify_device_time_columns_step"),
+                ("load_data_step", "identify_device_time_columns_step"),
                 ("identify_device_time_columns_step", "analyze_business_meaning_step"),
                 ("analyze_business_meaning_step", "analyze_control_relationships_step")
             ],

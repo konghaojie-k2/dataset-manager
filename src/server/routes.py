@@ -283,4 +283,104 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "dataset-manager"
-    } 
+    }
+
+
+@router.post("/datasets/{dataset_id}/start-business-analysis")
+async def start_business_analysis(
+    dataset_id: str,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """启动业务分析
+    
+    Args:
+        dataset_id: 数据集ID
+        service: 数据集服务
+        
+    Returns:
+        dict: 启动结果
+    """
+    try:
+        result = await service.start_business_analysis(dataset_id)
+        return result
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"启动业务分析失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/datasets/{dataset_id}/start-quality-analysis")
+async def start_quality_analysis(
+    dataset_id: str,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """启动质量分析
+    
+    Args:
+        dataset_id: 数据集ID
+        service: 数据集服务
+        
+    Returns:
+        dict: 启动结果
+    """
+    try:
+        result = await service.start_quality_analysis(dataset_id)
+        return result
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"启动质量分析失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/datasets/{dataset_id}/business-analysis-results")
+async def get_business_analysis_results(
+    dataset_id: str,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """获取业务分析结果
+    
+    Args:
+        dataset_id: 数据集ID
+        service: 数据集服务
+        
+    Returns:
+        dict: 业务分析结果
+    """
+    try:
+        results = await service.get_business_analysis_results(dataset_id)
+        return results
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"获取业务分析结果失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/datasets/{dataset_id}/quality-analysis-results")
+async def get_quality_analysis_results(
+    dataset_id: str,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """获取质量分析结果
+    
+    Args:
+        dataset_id: 数据集ID
+        service: 数据集服务
+        
+    Returns:
+        dict: 质量分析结果
+    """
+    try:
+        results = await service.get_quality_analysis_results(dataset_id)
+        return results
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"获取质量分析结果失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) 

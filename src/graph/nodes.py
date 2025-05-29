@@ -59,8 +59,30 @@ class AnalysisNodes:
         try:
             logger.info(f"开始加载数据: {state['file_path']}")
             
-            # 加载数据
-            data = self.data_analyzer.load_data(state["file_path"])
+            # 确保file_path是Path对象
+            file_path = Path(state["file_path"])
+            
+            # 处理ZIP文件：先解压，获取CSV文件
+            if file_path.suffix.lower() == '.zip':
+                # 使用FileProcessor提取CSV文件
+                csv_files = self.file_processor.extract_csv_files(file_path)
+                if not csv_files:
+                    raise ValueError("ZIP文件中未找到CSV文件")
+                
+                # 使用第一个CSV文件进行分析
+                csv_file_path = csv_files[0]
+                logger.info(f"从ZIP文件中提取到CSV文件: {csv_file_path}")
+                
+                # 使用FileProcessor的load_csv_data方法加载数据
+                self.data_analyzer.data = self.file_processor.load_csv_data(csv_file_path)
+                
+            elif file_path.suffix.lower() == '.csv':
+                # 直接加载CSV文件
+                self.data_analyzer.data = self.file_processor.load_csv_data(file_path)
+                
+            else:
+                # 使用原来的方法处理其他格式
+                data = self.data_analyzer.load_data(file_path)
             
             # 获取基础信息
             basic_info = self.data_analyzer.get_basic_info()
@@ -146,31 +168,54 @@ class AnalysisNodes:
             # 异常值检测
             outliers = self.data_analyzer.detect_outliers()
             
-            # 列级分析
+            # 列级分析（限制数量和内容以减少token使用）
             column_analyses = {}
             if state["data_info"] and "columns" in state["data_info"]:
-                for col in state["data_info"]["columns"][:5]:  # 限制分析前5列
+                for col in state["data_info"]["columns"][:3]:  # 只分析前3列，减少数据量
                     try:
                         col_analysis = self.data_analyzer.get_column_analysis(col)
-                        column_analyses[col] = col_analysis
+                        # 只保留关键信息，减少token使用
+                        column_analyses[col] = {
+                            "dtype": str(col_analysis.get("dtype", "unknown")),
+                            "null_count": col_analysis.get("null_count", 0),
+                            "unique_count": col_analysis.get("unique_count", 0),
+                            "sample_values": col_analysis.get("sample_values", [])[:3]  # 只保留3个示例值
+                        }
                     except Exception as e:
                         logger.warning(f"列 {col} 分析失败: {e}")
             
             state["column_analyses"] = column_analyses
             
-            # 生成详细分析报告
-            detailed_context = {
-                "quality_analysis": quality_analysis,
-                "correlation_analysis": correlation_analysis,
-                "outliers": outliers,
-                "column_analyses": column_analyses
+            # 生成简化的详细分析报告（减少数据量）
+            simplified_context = {
+                "data_shape": state["data_info"].get("shape", "未知"),
+                "column_count": len(state["data_info"].get("columns", [])),
+                "quality_score": quality_analysis.get("completeness", {}).get("completeness_rate", 0),
+                "has_outliers": any(outliers.get(col, {}).get("count", 0) > 0 for col in outliers),
+                "correlation_summary": "存在相关性" if correlation_analysis.get("strong_correlations") else "相关性较弱"
             }
             
-            # 使用统计分析提示词
-            prompt = self.analysis_prompts.get_statistical_analysis_prompt(detailed_context)
+            # 使用简化的统计分析提示词
+            prompt = f"""
+请对以下数据进行统计分析：
+
+数据概况：
+- 数据形状：{simplified_context['data_shape']}
+- 列数：{simplified_context['column_count']}
+- 数据完整性：{simplified_context['quality_score']:.1f}%
+- 异常值情况：{'存在异常值' if simplified_context['has_outliers'] else '无明显异常值'}
+- 相关性：{simplified_context['correlation_summary']}
+
+请提供简要的统计分析建议，包括：
+1. 数据质量评估
+2. 统计特征总结
+3. 分析建议
+
+请保持回答简洁明了。
+"""
             
             messages = [
-                SystemMessage(content="你是一个专业的数据科学家，请提供深入的统计分析。"),
+                SystemMessage(content="你是一个专业的数据科学家，请提供简洁的统计分析。"),
                 HumanMessage(content=prompt)
             ]
             
@@ -185,6 +230,9 @@ class AnalysisNodes:
             error_msg = f"详细分析失败: {e}"
             logger.error(error_msg)
             state["errors"].append(error_msg)
+            # 即使详细分析失败，也继续执行后续步骤
+            state["detailed_analysis"] = "详细分析暂时跳过，继续执行工业数据分析。"
+            state["completed_steps"].append("detailed_analysis")
         
         return state
     
@@ -290,17 +338,29 @@ class AnalysisNodes:
             columns_info = {}
             if state.get("data_info") and "columns" in state["data_info"]:
                 for col in state["data_info"]["columns"]:
+                    # 初始化默认值
+                    col_analysis = None
                     try:
                         col_analysis = self.data_analyzer.get_column_analysis(col)
+                    except Exception as e:
+                        logger.warning(f"获取列 {col} 信息失败: {e}")
+                    
+                    # 构建列信息，确保col_analysis不为None
+                    if col_analysis is not None:
                         columns_info[col] = {
                             "dtype": col_analysis.get("dtype", "unknown"),
                             "unique_count": col_analysis.get("unique_count", 0),
                             "null_count": col_analysis.get("null_count", 0),
                             "sample_values": col_analysis.get("sample_values", [])
                         }
-                    except Exception as e:
-                        logger.warning(f"获取列 {col} 信息失败: {e}")
-                        columns_info[col] = {"dtype": "unknown", "unique_count": 0, "null_count": 0, "sample_values": []}
+                    else:
+                        # 提供默认值，避免NoneType错误
+                        columns_info[col] = {
+                            "dtype": "unknown", 
+                            "unique_count": 0, 
+                            "null_count": 0, 
+                            "sample_values": []
+                        }
             
             # 构建列信息字符串
             columns_info_str = ""
@@ -354,11 +414,19 @@ class AnalysisNodes:
             columns_business_info = {}
             if state.get("data_info") and "columns" in state["data_info"]:
                 for col in state["data_info"]["columns"]:
+                    # 初始化默认值
+                    col_analysis = None
                     try:
                         col_analysis = self.data_analyzer.get_column_analysis(col)
-                        statistical_summary = state.get("statistical_summary", {})
-                        col_stats = statistical_summary.get(col, {})
-                        
+                    except Exception as e:
+                        logger.warning(f"获取列 {col} 分析信息失败: {e}")
+                    
+                    # 获取统计摘要
+                    statistical_summary = state.get("statistical_summary", {})
+                    col_stats = statistical_summary.get(col, {}) if statistical_summary else {}
+                    
+                    # 构建列信息，确保col_analysis不为None
+                    if col_analysis is not None:
                         columns_business_info[col] = {
                             "dtype": col_analysis.get("dtype", "unknown"),
                             "unique_count": col_analysis.get("unique_count", 0),
@@ -366,8 +434,15 @@ class AnalysisNodes:
                             "sample_values": col_analysis.get("sample_values", []),
                             "statistics": col_stats
                         }
-                    except Exception as e:
-                        logger.warning(f"获取列 {col} 业务信息失败: {e}")
+                    else:
+                        # 提供默认值，避免NoneType错误
+                        columns_business_info[col] = {
+                            "dtype": "unknown",
+                            "unique_count": 0,
+                            "null_count": 0,
+                            "sample_values": [],
+                            "statistics": col_stats
+                        }
             
             # 构建列业务信息字符串
             columns_business_info_str = ""
@@ -425,11 +500,24 @@ class AnalysisNodes:
             columns_info = {}
             if state.get("data_info") and "columns" in state["data_info"]:
                 for col in state["data_info"]["columns"]:
+                    # 初始化默认值
+                    col_analysis = None
                     try:
                         col_analysis = self.data_analyzer.get_column_analysis(col)
-                        columns_info[col] = col_analysis
                     except Exception as e:
                         logger.warning(f"获取列 {col} 信息失败: {e}")
+                    
+                    # 构建列信息，确保col_analysis不为None
+                    if col_analysis is not None:
+                        columns_info[col] = col_analysis
+                    else:
+                        # 提供默认值，避免NoneType错误
+                        columns_info[col] = {
+                            "dtype": "unknown",
+                            "unique_count": 0,
+                            "null_count": 0,
+                            "sample_values": []
+                        }
             
             # 构建列信息字符串
             columns_info_str = ""
