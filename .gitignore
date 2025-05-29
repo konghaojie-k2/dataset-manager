@@ -22,6 +22,16 @@ logs/
 uploads/
 metadata/
 
+# Reports and analysis results
+reports/
+# 分析报告markdown文件
+*_分析报告_*.md
+*_分析_*.md
+*_识别_*.md
+# 元数据和分析结果json文件
+metadata_*.json
+*_analysis.json
+
 # IDE
 .vscode/
 .idea/
