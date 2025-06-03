@@ -61,9 +61,7 @@ const Upload = {
                 return;
             }
 
-            // 显示简化的工作流程
-            Analysis.showWorkflow();
-            Analysis.resetSteps();
+
 
             // 开始上传
             await this.uploadFile(file);
@@ -71,7 +69,6 @@ const Upload = {
         } catch (error) {
             Utils.log.error('文件上传处理失败:', error);
             UI.showMessage('文件上传失败', CONFIG.MESSAGE.TYPES.ERROR);
-            Analysis.updateStep('upload', 'failed');
         }
     },
 
@@ -101,7 +98,6 @@ const Upload = {
      */
     async uploadFile(file) {
         AppState.loading.upload = true;
-        Analysis.updateStep('upload', 'active');
         UI.showLoading(true);
 
         try {
@@ -112,7 +108,6 @@ const Upload = {
 
             const result = await API.datasets.upload(formData);
 
-            Analysis.updateStep('upload', 'completed');
             App.setCurrentDataset(result.dataset_id);
             
             UI.showMessage(`文件上传成功！数据集ID: ${result.dataset_id}`, CONFIG.MESSAGE.TYPES.SUCCESS);
@@ -123,14 +118,12 @@ const Upload = {
                 fileInput.value = '';
             }
 
-            // 隐藏工作流程，刷新数据集列表以显示新的分析按钮
+            // 刷新数据集列表以显示新的分析按钮
             setTimeout(() => {
-                Analysis.hideWorkflow();
                 App.refreshDatasets();
             }, 2000);
 
         } catch (error) {
-            Analysis.updateStep('upload', 'failed');
             throw error;
         } finally {
             AppState.loading.upload = false;

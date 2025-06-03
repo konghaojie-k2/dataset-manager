@@ -96,7 +96,8 @@ def create_app() -> FastAPI:
     # 静态文件服务（如果有前端文件）
     web_dir = Path("web")
     if web_dir.exists():
-        app.mount("/static", StaticFiles(directory=str(web_dir)), name="static")
+        app.mount("/static", StaticFiles(directory=str(web_dir / "static")), name="static")
+        app.mount("/assets", StaticFiles(directory=str(web_dir / "assets")), name="assets")
 
     @app.get("/")
     async def root():

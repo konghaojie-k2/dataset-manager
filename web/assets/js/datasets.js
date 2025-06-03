@@ -14,6 +14,8 @@ const Datasets = {
         this.renderDatasetCards(currentPageDatasets);
         Pagination.update();
         
+
+        
         Utils.log.debug('数据集列表渲染完成:', currentPageDatasets.length, '个数据集');
     },
 
@@ -166,9 +168,15 @@ const Datasets = {
     getQualityStatus(dataset) {
         const status = dataset.processing_status || CONFIG.DATASET_STATUS.UPLOADED;
         
-        if (status === CONFIG.DATASET_STATUS.QUALITY_COMPLETED && dataset.quality_metrics) {
-            const score = Math.round(dataset.quality_metrics.quality_score) || 100;
-            return `<span class="quality-score">${score}分</span>`;
+        if (status === CONFIG.DATASET_STATUS.QUALITY_COMPLETED) {
+            // 检查质量分析结果
+            const qualityResults = dataset.quality_analysis_results || dataset.quality_metrics;
+            if (qualityResults) {
+                const score = Math.round(qualityResults.overall_score || qualityResults.quality_score) || 100;
+                return `<span class="quality-score">${score}分</span>`;
+            } else {
+                return '<span class="status-completed">已完成</span>';
+            }
         } else if (status === CONFIG.DATASET_STATUS.QUALITY_ANALYZING) {
             return '<span class="status-analyzing">分析中</span>';
         } else {

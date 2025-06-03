@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数据管理系统</title>
-    <link rel="stylesheet" href="static/assets/css/main.css">
-    <link rel="stylesheet" href="static/assets/css/components.css">
-    <link rel="stylesheet" href="static/assets/css/responsive.css">
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/responsive.css">
 </head>
 <body>
     <div class="container">
@@ -32,32 +32,12 @@
             </div>
             </section>
 
-            <!-- LangGraph流程展示 -->
-            <section class="langgraph-flow" id="langGraphFlow" style="display: none;">
-                <div class="flow-title">🚀 数据处理流程</div>
-                <div class="flow-steps">
-                    <div class="flow-step" id="step-upload">
-                        <span class="step-icon">📤</span>
-                        <div class="step-title">数据上传</div>
-                        <div class="step-description">文件上传与基础信息提取</div>
-                    </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="flow-step" id="step-business">
-                        <span class="step-icon">💡</span>
-                        <div class="step-title">业务分析</div>
-                        <div class="step-description">设备列识别、业务语义分析、控制逻辑推理</div>
-                    </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="flow-step" id="step-quality">
-                        <span class="step-icon">✅</span>
-                        <div class="step-title">数据质量分析</div>
-                        <div class="step-description">数据质量评估与分析</div>
-                    </div>
-                </div>
-            </section>
+
+
+
 
             <!-- 数据集管理区域 -->
-            <section class="datasets-section">
+            <section class="datasets-section" id="datasetsTab">
                 <h2 class="section-title">📚 数据集管理</h2>
                 
                 <!-- 每页显示数量选择器 -->
@@ -83,6 +63,8 @@
                     <div class="pagination-info" id="paginationInfo"></div>
                 </div>
             </section>
+
+
         </main>
     </div>
 
@@ -98,14 +80,15 @@
     <div class="message" id="message"></div>
 
     <!-- JavaScript 文件引用 -->
-    <script src="static/assets/js/config.js"></script>
-    <script src="static/assets/js/utils.js"></script>
-    <script src="static/assets/js/api.js"></script>
-    <script src="static/assets/js/upload.js"></script>
-    <script src="static/assets/js/analysis.js"></script>
-    <script src="static/assets/js/datasets.js"></script>
-    <script src="static/assets/js/pagination.js"></script>
-    <script src="static/assets/js/reports.js"></script>
-    <script src="static/assets/js/main.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/upload.js"></script>
+    <script src="assets/js/analysis.js"></script>
+    <script src="assets/js/datasets.js"></script>
+    <script src="assets/js/pagination.js"></script>
+    <script src="assets/js/reports.js"></script>
+    <script src="assets/js/quality.js"></script>
+    <script src="assets/js/main.js"></script>
 </body>
 </html> 

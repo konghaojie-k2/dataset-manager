@@ -107,21 +107,7 @@
         font-size: 2.5em;
     }
 
-    .flow-steps {
-        flex-direction: column;
-        gap: 20px;
-    }
 
-    .flow-step {
-        min-width: 100%;
-        margin: 0;
-    }
-
-    .flow-arrow {
-        transform: rotate(90deg);
-        margin: 10px 0;
-        font-size: 1.2em;
-    }
 
     .analysis-results {
         grid-template-columns: 1fr;
@@ -221,9 +207,7 @@
         font-size: 1.3em;
     }
 
-    .flow-title {
-        font-size: 1.3em;
-    }
+
 
     .upload-section {
         padding: 15px;
@@ -300,23 +284,8 @@
         padding: 20px 40px;
     }
 
-    .flow-steps {
-        flex-direction: row;
-    }
-
-    .flow-arrow {
-        transform: none;
-        margin: 0 5px;
-        font-size: 1.2em;
-    }
-
     .upload-section {
         padding: 20px;
-    }
-
-    .langgraph-flow {
-        padding: 20px;
-        margin: 20px 0;
     }
 }
 
@@ -399,9 +368,7 @@
         border-color: #000;
     }
 
-    .flow-step {
-        border: 2px solid #333;
-    }
+
 
     .column-card {
         border: 2px solid #333;

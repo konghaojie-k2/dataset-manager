@@ -77,11 +77,12 @@ class DatasetRepository:
                 "basic_analysis": dataset.basic_analysis,
                 "detailed_analysis": dataset.detailed_analysis,
                 "insights": dataset.insights,
-                "recommendations": dataset.recommendations
+                "recommendations": dataset.recommendations,
+                "quality_analysis_results": dataset.quality_analysis_results
             }
             
             # 只有当有分析结果时才保存JSON文件
-            if any(analysis_results.values()):
+            if any(v for v in analysis_results.values() if v is not None):
                 json_file = self.json_dir / f"{dataset.id}_analysis.json"
                 
                 with open(json_file, 'w', encoding='utf-8') as f:
@@ -160,6 +161,7 @@ class DatasetRepository:
                 dataset.detailed_analysis = analysis_results.get("detailed_analysis")
                 dataset.insights = analysis_results.get("insights", [])
                 dataset.recommendations = analysis_results.get("recommendations")
+                dataset.quality_analysis_results = analysis_results.get("quality_analysis_results")
                 
                 logger.debug(f"分析结果已从JSON加载: {json_file}")
                 
@@ -174,11 +176,23 @@ class DatasetRepository:
             List[DatasetMetadata]: 数据集列表
         """
         try:
-            # 从SQLite获取数据集列表（不包含分析结果，提高性能）
+            # 从SQLite获取数据集列表
             datasets = self.db_repository.list_datasets()
             
-            # 对于列表页面，通常不需要加载完整的分析结果
-            # 如果需要，可以按需加载
+            # 为了显示正确的状态，需要加载质量分析结果
+            for dataset in datasets:
+                try:
+                    json_file = self.json_dir / f"{dataset.id}_analysis.json"
+                    if json_file.exists():
+                        with open(json_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        
+                        analysis_results = data.get("analysis_results", {})
+                        # 只加载质量分析结果，用于状态显示
+                        dataset.quality_analysis_results = analysis_results.get("quality_analysis_results")
+                except Exception as e:
+                    logger.warning(f"加载数据集 {dataset.id} 的质量分析结果失败: {e}")
+                    # 不影响主流程，继续处理其他数据集
             
             return datasets
             

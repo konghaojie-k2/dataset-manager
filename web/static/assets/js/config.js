@@ -42,7 +42,14 @@ const CONFIG = {
         }
     },
     
-
+    // LangGraph流程步骤配置
+    WORKFLOW: {
+        STEPS: [
+            { id: 'upload', name: '数据上传', icon: '📤', description: '文件上传与基础信息提取' },
+            { id: 'business', name: '业务分析', icon: '💡', description: '设备列识别、业务语义分析、控制逻辑推理' },
+            { id: 'quality', name: '数据质量分析', icon: '✅', description: '数据质量评估与分析' }
+        ]
+    },
     
     // 数据集状态配置 - 更新为支持新的分析阶段
     DATASET_STATUS: {

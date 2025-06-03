@@ -7,5 +7,6 @@
 from .data_analyzer import DataAnalyzer
 from .file_processor import FileProcessor
 from .visualization_tools import VisualizationTools
+from .data_quality_analyzer import DataQualityAnalyzer
 
-__all__ = ["DataAnalyzer", "FileProcessor", "VisualizationTools"] 
+__all__ = ["DataAnalyzer", "FileProcessor", "VisualizationTools", "DataQualityAnalyzer"] 

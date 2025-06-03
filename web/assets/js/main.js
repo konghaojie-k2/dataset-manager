@@ -27,8 +27,6 @@ const AppState = {
     
     // UI状态
     ui: {
-        showAnalysisFlow: false,
-        activeAnalysisStep: null
     }
 };
 

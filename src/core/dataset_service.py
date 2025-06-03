@@ -17,6 +17,15 @@ from .file_service import FileService
 from .metadata_service import MetadataService
 from ..graph.workflow import run_industrial_analysis
 from ..tools.report_manager import report_manager
+from ..utils import (
+    convert_numpy_types,
+    build_base_results,
+    extract_column_info,
+    extract_schema_mapping,
+    safe_update_dataset_status,
+    get_dataset_with_validation,
+    get_dataset_by_id
+)
 
 
 class DatasetService:
@@ -127,9 +136,7 @@ class DatasetService:
             logger.info(f"开始提取数据集元数据: {dataset_id}")
             
             # 1. 获取数据集
-            dataset = self.repository.get_by_id(dataset_id)
-            if not dataset:
-                raise ValueError(f"数据集不存在: {dataset_id}")
+            dataset = get_dataset_by_id(self.repository, dataset_id, "元数据提取")
             
             # 2. 获取文件路径
             file_path = Path(dataset.file_path)
@@ -256,9 +263,8 @@ class DatasetService:
         Returns:
             DatasetMetadata: 更新后的数据集元数据
         """
-        dataset = self.repository.get_by_id(request.dataset_id)
-        if not dataset:
-            raise ValueError(f"数据集不存在: {request.dataset_id}")
+        # 使用复用的数据集获取方法
+        dataset = get_dataset_by_id(self.repository, request.dataset_id, "标签更新")
         
         # 更新标签
         dataset.tags = request.tags
@@ -313,9 +319,8 @@ class DatasetService:
             Optional[Dict[str, Any]]: 数据预览
         """
         try:
-            dataset = self.repository.get_by_id(dataset_id)
-            if not dataset:
-                return None
+            # 使用复用的数据集获取方法
+            dataset = get_dataset_by_id(self.repository, dataset_id, "数据预览")
             
             # 提取CSV文件
             file_path = Path(dataset.file_path)
@@ -355,18 +360,14 @@ class DatasetService:
         try:
             logger.info(f"开始启动业务分析: {dataset_id}")
             
-            # 1. 获取数据集
-            dataset = self.repository.get_by_id(dataset_id)
-            if not dataset:
-                raise ValueError(f"数据集不存在: {dataset_id}")
-            
-            # 2. 检查当前状态
-            if dataset.processing_status != "uploaded":
-                raise ValueError(f"数据集状态不允许启动业务分析: {dataset.processing_status}")
-            
-            # 3. 更新状态为业务分析中
-            dataset.processing_status = "business_analyzing"
-            self.repository.save(dataset)
+            # 1. 获取数据集并验证状态，同时更新为分析中状态
+            dataset = get_dataset_with_validation(
+                self.repository,
+                dataset_id,
+                ["uploaded"],
+                "业务分析",
+                update_status="business_analyzing"
+            )
             
             # 4. 实际执行业务分析逻辑
             logger.info(f"开始执行业务分析: {dataset_id}")
@@ -462,11 +463,8 @@ class DatasetService:
             
         except Exception as e:
             logger.error(f"业务分析失败: {e}")
-            # 更新状态为失败
-            dataset = self.repository.get_by_id(dataset_id)
-            if dataset:
-                dataset.processing_status = "analysis_failed"
-                self.repository.save(dataset)
+            # 安全地更新状态为失败
+            safe_update_dataset_status(self.repository, dataset_id, "analysis_failed")
             raise
     
     async def start_quality_analysis(self, dataset_id: str) -> Dict[str, Any]:
@@ -481,34 +479,99 @@ class DatasetService:
         try:
             logger.info(f"开始启动质量分析: {dataset_id}")
             
-            # 1. 获取数据集
-            dataset = self.repository.get_by_id(dataset_id)
-            if not dataset:
-                raise ValueError(f"数据集不存在: {dataset_id}")
+            # 1. 获取数据集并验证状态，同时更新为分析中状态
+            dataset = get_dataset_with_validation(
+                self.repository,
+                dataset_id,
+                ["business_completed"],
+                "质量分析",
+                update_status="quality_analyzing"
+            )
             
-            # 2. 检查当前状态
-            if dataset.processing_status != "business_completed":
-                raise ValueError(f"数据集状态不允许启动质量分析: {dataset.processing_status}")
+            # 4. 启动数据质量分析工作流
+            logger.info(f"开始执行质量分析: {dataset_id}")
             
-            # 3. 更新状态为质量分析中
-            dataset.processing_status = "quality_analyzing"
-            self.repository.save(dataset)
+            # 导入数据质量分析工作流
+            from ..graph.data_quality_workflow import DataQualityWorkflow
+            from ..schemas.data_quality import QualityAnalysisRequest
+            from ..llms import get_reasoning_llm
             
-            # 4. 异步执行质量分析（这里先返回成功状态，实际分析在后台进行）
-            # TODO: 实现异步质量分析逻辑
+            # 创建LLM实例
+            llm = get_reasoning_llm()
             
-            logger.info(f"质量分析已启动: {dataset_id}")
-            return {
-                "success": True,
-                "message": "质量分析已启动",
-                "dataset_id": dataset_id,
-                "status": "quality_analyzing"
-            }
+            # 创建工作流实例
+            workflow = DataQualityWorkflow(llm)
+            
+            # 创建分析请求
+            request = QualityAnalysisRequest(
+                dataset_id=dataset_id,
+                user_requirements="进行全面的数据质量分析，重点关注时间序列数据的连续性和参数数据的合理性"
+            )
+            
+            # 执行分析工作流
+            response = await workflow.run_analysis(request)
+            
+            if response.status == "completed" and response.report:
+                # 5. 重新获取数据集以确保最新状态
+                dataset = self.repository.get_by_id(dataset_id)
+                if not dataset:
+                    raise ValueError(f"数据集不存在: {dataset_id}")
+                
+                # 更新状态为质量分析完成
+                dataset.processing_status = "quality_completed"
+                
+                # 保存质量分析结果
+                quality_results = {
+                    "overall_score": response.report.overall_score,
+                    "quality_level": response.report.quality_level.value,
+                    "time_columns": [col.dict() for col in response.report.time_columns],
+                    "parameter_columns": [col.dict() for col in response.report.parameter_columns],
+                    "category_columns": [col.dict() for col in response.report.category_columns],
+                    "key_issues": response.report.key_issues,
+                    "recommendations": response.report.recommendations,
+                    "summary": response.report.summary,
+                    "analysis_time": response.report.created_at.isoformat(),
+                    "processing_time": response.processing_time
+                }
+                
+                # 更新数据集的质量分析结果
+                dataset.quality_analysis_results = quality_results
+                self.repository.save(dataset)
+                
+                logger.info(f"质量分析完成: {dataset_id}, 整体得分: {response.report.overall_score:.1f}")
+                
+                return {
+                    "success": True,
+                    "message": "质量分析完成",
+                    "dataset_id": dataset_id,
+                    "status": "quality_completed",
+                    "overall_score": response.report.overall_score,
+                    "quality_level": response.report.quality_level.value,
+                    "processing_time": response.processing_time
+                }
+            else:
+                # 分析失败
+                dataset.processing_status = "quality_failed"
+                self.repository.save(dataset)
+                
+                error_msg = response.error_message or "质量分析失败"
+                logger.error(f"质量分析失败: {dataset_id}, 错误: {error_msg}")
+                
+                return {
+                    "success": False,
+                    "message": f"质量分析失败: {error_msg}",
+                    "dataset_id": dataset_id,
+                    "status": "quality_failed"
+                }
             
         except Exception as e:
             logger.error(f"启动质量分析失败: {e}")
+            # 安全地更新状态为失败
+            safe_update_dataset_status(self.repository, dataset_id, "quality_failed")
             raise
     
+
+
     async def get_business_analysis_results(self, dataset_id: str) -> Dict[str, Any]:
         """获取业务分析结果
         
@@ -519,24 +582,22 @@ class DatasetService:
             Dict[str, Any]: 业务分析结果
         """
         try:
-            dataset = self.repository.get_by_id(dataset_id)
-            if not dataset:
-                raise ValueError(f"数据集不存在: {dataset_id}")
-            
-            # 检查是否有业务分析结果
-            if dataset.processing_status not in ["business_completed", "quality_analyzing", "quality_completed"]:
-                raise ValueError("业务分析尚未完成")
+            # 使用复用的验证方法
+            dataset = get_dataset_with_validation(
+                self.repository,
+                dataset_id, 
+                ["business_completed", "quality_analyzing", "quality_completed"],
+                "业务分析"
+            )
             
             # 构建业务分析结果
-            results = {
-                "dataset_id": dataset_id,
-                "dataset_name": dataset.name,
-                "analysis_time": dataset.upload_time,
-                "columns": self._extract_column_info(dataset),
+            results = build_base_results(dataset)
+            results.update({
+                "columns": extract_column_info(dataset),
                 "business_meaning": dataset.business_meaning_analysis or "暂无业务含义分析结果",
                 "control_logic": dataset.control_relationships_analysis or "暂无控制逻辑分析结果",
-                "schema_mapping": self._extract_schema_mapping(dataset)
-            }
+                "schema_mapping": extract_schema_mapping(dataset)
+            })
             
             return results
             
@@ -554,28 +615,40 @@ class DatasetService:
             Dict[str, Any]: 质量分析结果
         """
         try:
-            dataset = self.repository.get_by_id(dataset_id)
-            if not dataset:
-                raise ValueError(f"数据集不存在: {dataset_id}")
+            # 使用复用的验证方法
+            dataset = get_dataset_with_validation(
+                self.repository,
+                dataset_id,
+                ["quality_completed"],
+                "质量分析"
+            )
             
-            # 检查是否有质量分析结果
-            if dataset.processing_status != "quality_completed":
-                raise ValueError("质量分析尚未完成")
+            # 构建基础结果
+            results = build_base_results(dataset)
             
-            # 构建质量分析结果
-            results = {
-                "dataset_id": dataset_id,
-                "dataset_name": dataset.name,
-                "analysis_time": dataset.upload_time,
-                "overall_score": 85,  # 示例评分
-                "quality_metrics": [
-                    {"name": "完整性", "score": 90},
-                    {"name": "准确性", "score": 85},
-                    {"name": "一致性", "score": 80}
-                ],
-                "detailed_analysis": dataset.detailed_analysis or "暂无详细质量分析结果",
-                "recommendations": self._extract_recommendations(dataset)
-            }
+            # 返回实际的质量分析结果
+            if dataset.quality_analysis_results:
+                # 转换numpy类型为Python原生类型
+                quality_results = convert_numpy_types(dataset.quality_analysis_results)
+                results.update(quality_results)
+            else:
+                # 如果没有质量分析结果，返回默认结果
+                results.update({
+                    "overall_score": 85,  # 示例评分
+                    "quality_level": "good",
+                    "time_columns": [],
+                    "parameter_columns": [],
+                    "category_columns": [],
+                    "key_issues": ["暂无质量分析结果"],
+                    "recommendations": ["请重新运行质量分析"],
+                    "summary": {
+                        "column_breakdown": {
+                            "time_columns": 0,
+                            "parameter_columns": 0,
+                            "category_columns": 0
+                        }
+                    }
+                })
             
             return results
             
@@ -583,74 +656,6 @@ class DatasetService:
             logger.error(f"获取质量分析结果失败: {e}")
             raise
     
-    def _extract_column_info(self, dataset) -> List[Dict[str, Any]]:
-        """提取列信息"""
-        columns = []
-        if hasattr(dataset, 'columns') and dataset.columns:
-            for col in dataset.columns:
-                # 如果是ColumnMetadata对象，提取name属性
-                if hasattr(col, 'name'):
-                    column_name = col.name
-                    column_type = getattr(col, 'business_meaning', '').lower()
-                    # 根据业务含义判断列类型
-                    if 'device' in column_type or 'equipment' in column_type:
-                        col_type = "device"
-                    elif 'time' in column_type or 'timestamp' in column_type or 'date' in column_type:
-                        col_type = "time"
-                    else:
-                        col_type = "business"
-                    
-                    columns.append({
-                        "name": column_name,
-                        "type": col_type,
-                        "description": getattr(col, 'business_meaning', f"{column_name}列的业务描述")
-                    })
-                # 如果是字符串，直接使用
-                elif isinstance(col, str):
-                    columns.append({
-                        "name": col,
-                        "type": "business",
-                        "description": f"{col}列的业务描述"
-                    })
-        return columns
+
     
-    def _extract_schema_mapping(self, dataset) -> List[Dict[str, Any]]:
-        """提取Schema映射"""
-        mappings = []
-        if hasattr(dataset, 'columns') and dataset.columns:
-            for col in dataset.columns:
-                # 如果是ColumnMetadata对象，提取属性
-                if hasattr(col, 'name'):
-                    column_name = col.name
-                    chinese_name = getattr(col, 'chinese_name', f"{column_name}_中文")
-                    data_type = getattr(col, 'data_type', '数值型')
-                    description = getattr(col, 'business_meaning', f"{column_name}的业务描述")
-                    
-                    mappings.append({
-                        "original_name": column_name,
-                        "chinese_name": chinese_name,
-                        "data_type": data_type,
-                        "description": description
-                    })
-                # 如果是字符串，创建默认映射
-                elif isinstance(col, str):
-                    mappings.append({
-                        "original_name": col,
-                        "chinese_name": f"{col}_中文",
-                        "data_type": "数值型",
-                        "description": f"{col}的业务描述"
-                    })
-        return mappings
-    
-    def _extract_recommendations(self, dataset) -> List[Dict[str, Any]]:
-        """提取建议列表"""
-        return [
-            {
-                "type": "数据清洗",
-                "content": "建议处理缺失值和异常值"
-            },
-            {
-                "type": "格式规范",
-                "content": "建议统一时间格式"
-            }
-        ] 
+ 

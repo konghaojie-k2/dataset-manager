@@ -47,6 +47,21 @@ from .mcp import (
     MCPMetrics
 )
 
+# 数据质量相关结构
+from .data_quality import (
+    QualityLevel,
+    ColumnType,
+    TimeQualityIssue,
+    TimeColumnQuality,
+    ParameterQualityIssue,
+    ParameterColumnQuality,
+    CategoryQualityIssue,
+    CategoryColumnQuality,
+    DataQualityReport,
+    QualityAnalysisRequest,
+    QualityAnalysisResponse
+)
+
 __all__ = [
     # 数据集结构
     "DatasetMetadata",
@@ -80,4 +95,17 @@ __all__ = [
     "APIConnectionConfig",
     "MCPHealthCheck",
     "MCPMetrics",
+    
+    # 数据质量结构
+    "QualityLevel",
+    "ColumnType",
+    "TimeQualityIssue",
+    "TimeColumnQuality",
+    "ParameterQualityIssue",
+    "ParameterColumnQuality",
+    "CategoryQualityIssue",
+    "CategoryColumnQuality",
+    "DataQualityReport",
+    "QualityAnalysisRequest",
+    "QualityAnalysisResponse",
 ] 

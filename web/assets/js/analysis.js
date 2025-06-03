@@ -3,54 +3,7 @@
  */
 
 const Analysis = {
-    /**
-     * 显示LangGraph工作流
-     */
-    showWorkflow() {
-        const workflowEl = Utils.dom.find('#langGraphFlow');
-        if (workflowEl) {
-            workflowEl.style.display = 'block';
-            AppState.ui.showAnalysisFlow = true;
-            Utils.log.debug('显示分析工作流');
-        }
-    },
 
-    /**
-     * 隐藏工作流
-     */
-    hideWorkflow() {
-        const workflowEl = Utils.dom.find('#langGraphFlow');
-        if (workflowEl) {
-            workflowEl.style.display = 'none';
-            AppState.ui.showAnalysisFlow = false;
-        }
-    },
-
-    /**
-     * 重置所有步骤状态
-     */
-    resetSteps() {
-        CONFIG.WORKFLOW.STEPS.forEach(step => {
-            const element = Utils.dom.find(`#step-${step.id}`);
-            if (element) {
-                element.className = 'flow-step';
-            }
-        });
-        AppState.ui.activeAnalysisStep = null;
-        Utils.log.debug('重置工作流步骤状态');
-    },
-
-    /**
-     * 更新步骤状态
-     */
-    updateStep(stepId, status) {
-        const element = Utils.dom.find(`#step-${stepId}`);
-        if (element) {
-            element.className = `flow-step ${status}`;
-            AppState.ui.activeAnalysisStep = status === 'active' ? stepId : AppState.ui.activeAnalysisStep;
-            Utils.log.debug(`更新步骤状态: ${stepId} -> ${status}`);
-        }
-    },
 
     /**
      * 启动业务分析
