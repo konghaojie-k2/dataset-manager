@@ -1226,30 +1226,34 @@ class DataQualityAnalyzer:
         
         # 计算整体得分
         all_scores = []
-        all_scores.extend([col.overall_score for col in time_columns])
-        all_scores.extend([col.overall_score for col in parameter_columns])
-        all_scores.extend([col.overall_score for col in category_columns])
+        all_scores.extend([col.overall_score for col in time_columns if col.overall_score is not None])
+        all_scores.extend([col.overall_score for col in parameter_columns if col.overall_score is not None])
+        all_scores.extend([col.overall_score for col in category_columns if col.overall_score is not None])
         
-        overall_score = sum(all_scores) / len(all_scores) if all_scores else 0
+        # 确保分数在合理范围内
+        valid_scores = [score for score in all_scores if 0 <= score <= 100]
+        overall_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0
+        overall_score = round(overall_score, 1)  # 保留一位小数
         quality_level = self._get_quality_level(overall_score)
         
         # 统计信息
         total_columns = len(self.data.columns)
-        analyzed_columns = len(all_scores)
-        high_quality_columns = sum(1 for score in all_scores if score >= 80)
-        low_quality_columns = sum(1 for score in all_scores if score < 60)
+        analyzed_columns = len(valid_scores)
+        high_quality_columns = sum(1 for score in valid_scores if score >= 80)
+        low_quality_columns = sum(1 for score in valid_scores if score < 60)
         
         # 收集关键问题
         key_issues = []
         all_recommendations = []
         
         for col in time_columns + parameter_columns + category_columns:
-            if col.overall_score < 70:
+            if col.overall_score is not None and col.overall_score < 70:
                 key_issues.append(f"{col.column_name}: 质量得分 {col.overall_score:.1f}")
-            all_recommendations.extend(col.recommendations)
+            if hasattr(col, 'recommendations') and col.recommendations:
+                all_recommendations.extend(col.recommendations)
         
-        # 去重建议
-        unique_recommendations = list(set(all_recommendations))
+        # 去重建议并限制数量
+        unique_recommendations = list(set(all_recommendations))[:10]  # 最多10条建议
         
         # 生成摘要
         summary = {
@@ -1260,10 +1264,10 @@ class DataQualityAnalyzer:
                 'category_columns': len(category_columns)
             },
             'quality_distribution': {
-                'excellent': sum(1 for score in all_scores if score >= 90),
-                'good': sum(1 for score in all_scores if 70 <= score < 90),
-                'fair': sum(1 for score in all_scores if 50 <= score < 70),
-                'poor': sum(1 for score in all_scores if score < 50)
+                'excellent': sum(1 for score in valid_scores if score >= 90),
+                'good': sum(1 for score in valid_scores if 70 <= score < 90),
+                'fair': sum(1 for score in valid_scores if 50 <= score < 70),
+                'poor': sum(1 for score in valid_scores if score < 50)
             }
         }
         

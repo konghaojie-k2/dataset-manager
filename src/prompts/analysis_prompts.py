@@ -263,6 +263,50 @@ class AnalysisPrompts:
             logger.error(f"获取建议提示词失败: {e}")
             return self._get_fallback_recommendations_prompt(analysis_context)
     
+    def get_data_quality_column_optimization_prompt(self, 
+                                                   columns_info: str,
+                                                   user_requirements: str) -> str:
+        """获取数据质量列类型优化提示词
+        
+        Args:
+            columns_info: 列信息
+            user_requirements: 用户要求
+            
+        Returns:
+            str: 提示词
+        """
+        try:
+            template = self.loader.get_prompt_template("data_quality_column_optimization")
+            return template.format(
+                columns_info=columns_info,
+                user_requirements=user_requirements or "无特殊要求"
+            )
+        except Exception as e:
+            logger.error(f"获取数据质量列优化提示词失败: {e}")
+            return self._get_fallback_column_optimization_prompt(columns_info, user_requirements)
+    
+    def get_data_quality_insights_prompt(self,
+                                       report_summary: str,
+                                       user_requirements: str) -> str:
+        """获取数据质量洞察提示词
+        
+        Args:
+            report_summary: 报告摘要
+            user_requirements: 用户要求
+            
+        Returns:
+            str: 提示词
+        """
+        try:
+            template = self.loader.get_prompt_template("data_quality_insights")
+            return template.format(
+                report_summary=report_summary,
+                user_requirements=user_requirements or "无特殊要求"
+            )
+        except Exception as e:
+            logger.error(f"获取数据质量洞察提示词失败: {e}")
+            return self._get_fallback_quality_insights_prompt(report_summary, user_requirements)
+
     def list_available_templates(self) -> list:
         """列出所有可用的分析模板
         
@@ -487,4 +531,66 @@ class AnalysisPrompts:
 - 工具和技术选择
 - 实施难度评估
 - 资源需求分析
+"""
+    
+    def _get_fallback_column_optimization_prompt(self, columns_info: str, user_requirements: str) -> str:
+        """备用列类型优化提示词"""
+        return f"""
+请分析以下数据列的类型，并判断自动检测的结果是否正确。
+
+列信息:
+{columns_info}
+
+用户要求: {user_requirements or "无特殊要求"}
+
+可选的列类型:
+- time: 时间列（日期、时间戳等）
+- parameter: 参数列（数值型测量值、指标等）
+- category: 类目列（分类、标签等）
+
+请严格按照以下格式返回JSON，只包含需要修正的列：
+
+```json
+{{"column_name": "type"}}
+```
+
+如果自动检测结果都正确，返回：
+
+```json
+{{}}
+```
+
+注意：请只返回JSON格式，不要添加其他说明文字。
+"""
+    
+    def _get_fallback_quality_insights_prompt(self, report_summary: str, user_requirements: str) -> str:
+        """备用数据质量洞察提示词"""
+        return f"""
+基于以下数据质量分析报告，请提供深度洞察和改进建议：
+
+报告摘要:
+{report_summary}
+
+用户要求: {user_requirements or "无特殊要求"}
+
+请从以下角度分析：
+1. 数据质量的整体评估
+2. 主要质量问题的根本原因
+3. 优先级改进建议
+4. 潜在的业务影响
+5. 数据治理建议
+
+请严格按照以下格式返回JSON：
+
+```json
+{{
+    "key_insights": ["洞察1", "洞察2"],
+    "root_causes": ["原因1", "原因2"],
+    "priority_actions": ["行动1", "行动2"],
+    "business_impact": "业务影响描述",
+    "governance_recommendations": ["治理建议1", "治理建议2"]
+}}
+```
+
+注意：请只返回JSON格式，不要添加其他说明文字。
 """ 

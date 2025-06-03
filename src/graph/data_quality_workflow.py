@@ -315,7 +315,7 @@ class DataQualityWorkflow:
                                        user_requirements: Optional[str]) -> Optional[Dict[str, ColumnType]]:
         """使用LLM优化列类型检测"""
         try:
-            # 构建提示词
+            # 构建列信息
             columns_info = []
             for col in data.columns[:10]:  # 只分析前10列避免token过多
                 sample_values = data[col].dropna().head(5).tolist()
@@ -326,38 +326,19 @@ class DataQualityWorkflow:
                     "dtype": str(data[col].dtype)
                 })
             
-            prompt = f"""
-请分析以下数据列的类型，并判断自动检测的结果是否正确。
-
-列信息:
-{columns_info}
-
-用户要求: {user_requirements or "无特殊要求"}
-
-可选的列类型:
-- time: 时间列（日期、时间戳等）
-- parameter: 参数列（数值型测量值、指标等）
-- category: 类目列（分类、标签等）
-
-请严格按照以下格式返回JSON，只包含需要修正的列：
-
-```json
-{{"column_name": "type"}}
-```
-
-如果自动检测结果都正确，返回：
-
-```json
-{{}}
-```
-
-注意：请只返回JSON格式，不要添加其他说明文字。
-"""
+            # 使用提示词管理系统
+            from ..prompts.analysis_prompts import AnalysisPrompts
+            prompts = AnalysisPrompts()
+            
+            prompt = prompts.get_data_quality_column_optimization_prompt(
+                columns_info=str(columns_info),
+                user_requirements=user_requirements or "无特殊要求"
+            )
             
             from langchain_core.messages import HumanMessage, SystemMessage
             
             messages = [
-                SystemMessage(content="你是一个专业的数据分析师，请分析数据列类型。"),
+                SystemMessage(content="你是一个专业的数据分析师。请严格按照用户要求的JSON格式返回结果，不要添加任何其他文字说明。"),
                 HumanMessage(content=prompt)
             ]
             
@@ -403,40 +384,19 @@ class DataQualityWorkflow:
                 "recommendations": report.recommendations[:5]  # 只包含前5个建议
             }
             
-            prompt = f"""
-基于以下数据质量分析报告，请提供深度洞察和改进建议：
-
-报告摘要:
-{report_summary}
-
-用户要求: {user_requirements or "无特殊要求"}
-
-请从以下角度分析：
-1. 数据质量的整体评估
-2. 主要质量问题的根本原因
-3. 优先级改进建议
-4. 潜在的业务影响
-5. 数据治理建议
-
-请严格按照以下格式返回JSON：
-
-```json
-{{
-    "key_insights": ["洞察1", "洞察2"],
-    "root_causes": ["原因1", "原因2"],
-    "priority_actions": ["行动1", "行动2"],
-    "business_impact": "业务影响描述",
-    "governance_recommendations": ["治理建议1", "治理建议2"]
-}}
-```
-
-注意：请只返回JSON格式，不要添加其他说明文字。
-"""
+            # 使用提示词管理系统
+            from ..prompts.analysis_prompts import AnalysisPrompts
+            prompts = AnalysisPrompts()
+            
+            prompt = prompts.get_data_quality_insights_prompt(
+                report_summary=str(report_summary),
+                user_requirements=user_requirements or "无特殊要求"
+            )
             
             from langchain_core.messages import HumanMessage, SystemMessage
             
             messages = [
-                SystemMessage(content="你是一个专业的数据质量分析师，请提供深度洞察。"),
+                SystemMessage(content="你是一个专业的数据质量分析师。请严格按照用户要求的JSON格式返回结果，不要添加任何其他文字说明。"),
                 HumanMessage(content=prompt)
             ]
             
@@ -453,17 +413,31 @@ class DataQualityWorkflow:
                 insights = json.loads(repaired_json)
                 
                 if insights and isinstance(insights, dict):
-                    # 转换为报告格式
+                    # 转换为报告格式，确保有默认值
                     enhanced_insights = {
-                        "key_issues": insights.get("key_insights", []) + insights.get("root_causes", []),
+                        "key_issues": (insights.get("key_insights", []) + 
+                                     insights.get("root_causes", []))[:10],  # 最多10个问题
                         "recommendations": (insights.get("priority_actions", []) + 
-                                          insights.get("governance_recommendations", []))
+                                          insights.get("governance_recommendations", []))[:10]  # 最多10个建议
                     }
+                    
+                    # 确保至少有一些内容
+                    if not enhanced_insights["key_issues"]:
+                        enhanced_insights["key_issues"] = [f"数据质量整体得分为 {report.overall_score:.1f}"]
+                    
+                    if not enhanced_insights["recommendations"]:
+                        enhanced_insights["recommendations"] = ["建议定期监控数据质量指标"]
                     
                     return enhanced_insights
                 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"LLM返回的洞察JSON格式无效。响应内容: {response_content[:200]}...")
+                
+                # 返回基于报告的默认洞察
+                return {
+                    "key_issues": [f"数据质量整体得分为 {report.overall_score:.1f}"] + report.key_issues[:5],
+                    "recommendations": report.recommendations[:5] if report.recommendations else ["建议定期监控数据质量指标"]
+                }
             
         except Exception as e:
             logger.warning(f"LLM洞察生成失败: {e}")

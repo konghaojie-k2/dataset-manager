@@ -188,6 +188,10 @@ class PromptLoader:
         if not prompt_data:
             return ""
         
+        # 对于数据质量相关的模板，返回完整内容
+        if filename.startswith('data_quality'):
+            return prompt_data.get('raw_content', '')
+        
         sections = prompt_data.get('sections', {})
         
         # 尝试获取指定部分
@@ -198,11 +202,8 @@ class PromptLoader:
         if 'main' in sections:
             return sections['main']
         
-        # 如果都没有，返回第一个部分
-        if sections:
-            return list(sections.values())[0]
-        
-        return ""
+        # 如果都没有，返回完整内容
+        return prompt_data.get('raw_content', '')
     
     def get_prompt_metadata(self, filename: str) -> Dict[str, Any]:
         """获取提示词元数据
