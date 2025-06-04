@@ -127,22 +127,96 @@ CREATE TABLE analysis_results (
 );
 ```
 
-### JSON文件结构
+### JSON文件结构（分离存储）
 
-#### 分析结果文件格式
+#### 目录结构
+```
+metadata/analysis_results/
+├── business/                    # 业务分析结果
+│   └── {dataset_id}_business_analysis.json
+├── quality/                     # 质量分析结果
+│   └── {dataset_id}_quality_analysis.json
+└── {dataset_id}_analysis.json   # 旧格式（兼容性保留）
+```
+
+#### 业务分析文件格式
 ```json
 {
   "dataset_id": "dataset_123",
-  "dataset_name": "工业设备监控数据",
-  "analysis_timestamp": "2025-05-28T15:08:33",
-  "analysis_results": {
-    "device_time_identification": "## 设备列和时间列识别结果\n...",
-    "business_meaning_analysis": "## 业务含义分析结果\n...",
-    "control_relationships_analysis": "## 控制原理分析结果\n...",
-    "basic_analysis": "基础分析内容...",
-    "detailed_analysis": "详细分析内容...",
-    "insights": ["洞察1", "洞察2"],
-    "recommendations": "优化建议..."
+  "analysis_timestamp": "2025-06-04T10:25:19",
+  "business_analysis_results": {
+    "device_time_identification": "时间列：timestamp，设备ID列：device_id",
+    "business_meaning_analysis": "这是一个工业设备监控数据集",
+    "control_relationships_analysis": "温度和压力存在正相关关系",
+    "basic_analysis": "数据包含3个设备的监控信息",
+    "detailed_analysis": "详细分析结果...",
+    "insights": ["设备运行稳定", "温度波动较小"],
+    "recommendations": "建议增加监控频率",
+    "column_analyses": {"temperature": "温度数据质量良好"},
+    "columns_metadata": [
+      {
+        "name": "timestamp",
+        "dtype": "datetime64[ns]",
+        "business_meaning": "时间戳"
+      }
+    ]
+  }
+}
+```
+
+#### 质量分析文件格式
+```json
+{
+  "dataset_id": "dataset_123",
+  "analysis_timestamp": "2025-06-04T10:25:20",
+  "quality_analysis_results": {
+    "overall_score": 85.5,
+    "quality_level": "good",
+    "time_columns": [
+      {
+        "column_name": "timestamp",
+        "overall_score": 90.0,
+        "data_type": "datetime",
+        "missing_rate": 0.01,
+        "issues": ["少量缺失值"]
+      }
+    ],
+    "parameter_columns": [
+      {
+        "column_name": "temperature",
+        "overall_score": 85.0,
+        "data_type": "float",
+        "missing_rate": 0.02,
+        "outlier_rate": 0.01,
+        "issues": ["数据质量良好"]
+      }
+    ],
+    "category_columns": [
+      {
+        "column_name": "device_id",
+        "overall_score": 95.0,
+        "unique_count": 3,
+        "missing_rate": 0.0,
+        "issues": ["无问题"]
+      }
+    ],
+    "key_issues": ["timestamp列存在少量缺失值"],
+    "recommendations": ["补充缺失的时间戳"],
+    "summary": {
+      "column_breakdown": {
+        "time_columns": 1,
+        "parameter_columns": 1,
+        "category_columns": 1
+      },
+      "quality_distribution": {
+        "excellent": 1,
+        "good": 2,
+        "fair": 0,
+        "poor": 0
+      }
+    },
+    "analysis_time": "2025-06-04T10:25:20.001234",
+    "processing_time": 32.5
   }
 }
 ```

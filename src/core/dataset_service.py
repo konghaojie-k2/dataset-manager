@@ -439,6 +439,27 @@ class DatasetService:
             # 保存更新后的数据集
             self.repository.save(updated_dataset)
             
+            # 保存业务分析结果到分离存储
+            try:
+                business_results = {
+                    "device_time_identification": extraction_result.get("device_time_identification"),
+                    "business_meaning_analysis": extraction_result.get("business_meaning_analysis"),
+                    "control_relationships_analysis": extraction_result.get("control_relationships_analysis"),
+                    "basic_analysis": extraction_result.get("basic_analysis"),
+                    "detailed_analysis": extraction_result.get("detailed_analysis"),
+                    "insights": extraction_result.get("insights", []),
+                    "recommendations": extraction_result.get("recommendations"),
+                    "column_analyses": extraction_result.get("column_analyses", {}),
+                    "columns_metadata": extraction_result.get("columns_metadata", [])
+                }
+                # 过滤掉None值
+                business_results = {k: v for k, v in business_results.items() if v is not None}
+                
+                self.repository.save_business_analysis_results(dataset_id, business_results)
+                logger.info(f"业务分析结果已保存到分离存储: {dataset_id}")
+            except Exception as e:
+                logger.warning(f"保存业务分析结果到分离存储失败: {e}")
+            
             # 保存分析结果为MD文件
             try:
                 saved_files = report_manager.save_industrial_analysis_report(
@@ -538,6 +559,27 @@ class DatasetService:
                 dataset.quality_analysis_results = quality_results
                 self.repository.save(dataset)
                 
+                # 保存质量分析结果到分离存储
+                try:
+                    self.repository.save_quality_analysis_results(dataset_id, quality_results)
+                    logger.info(f"质量分析结果已保存到分离存储: {dataset_id}")
+                except Exception as e:
+                    logger.warning(f"保存质量分析结果到分离存储失败: {e}")
+                
+                # 保存质量分析结果为MD文件
+                try:
+                    from ..tools.report_manager import ReportManager
+                    report_manager = ReportManager()
+                    saved_files = report_manager.save_quality_analysis_report(
+                        dataset_id=dataset_id,
+                        dataset_name=dataset.name,
+                        quality_results=quality_results
+                    )
+                    logger.info(f"质量分析报告已保存为MD文件: {len(saved_files)} 个文件")
+                except Exception as e:
+                    logger.warning(f"保存质量分析报告文件失败: {e}")
+                    # 不影响主流程，继续执行
+                
                 logger.info(f"质量分析完成: {dataset_id}, 整体得分: {response.report.overall_score:.1f}")
                 
                 return {
@@ -590,14 +632,34 @@ class DatasetService:
                 "业务分析"
             )
             
+            # 从分离存储获取业务分析结果
+            business_results = self.repository.get_business_analysis_results(dataset_id)
+            
             # 构建业务分析结果
             results = build_base_results(dataset)
-            results.update({
-                "columns": extract_column_info(dataset),
-                "business_meaning": dataset.business_meaning_analysis or "暂无业务含义分析结果",
-                "control_logic": dataset.control_relationships_analysis or "暂无控制逻辑分析结果",
-                "schema_mapping": extract_schema_mapping(dataset)
-            })
+            
+            if business_results:
+                results.update({
+                    "columns": extract_column_info(dataset),
+                    "business_meaning": business_results.get("business_meaning_analysis", "暂无业务含义分析结果"),
+                    "control_logic": business_results.get("control_relationships_analysis", "暂无控制逻辑分析结果"),
+                    "schema_mapping": extract_schema_mapping(dataset),
+                    "device_time_identification": business_results.get("device_time_identification"),
+                    "basic_analysis": business_results.get("basic_analysis"),
+                    "detailed_analysis": business_results.get("detailed_analysis"),
+                    "insights": business_results.get("insights", []),
+                    "recommendations": business_results.get("recommendations"),
+                    "column_analyses": business_results.get("column_analyses", {}),
+                    "columns_metadata": business_results.get("columns_metadata", [])
+                })
+            else:
+                # 兼容旧数据：从dataset对象获取
+                results.update({
+                    "columns": extract_column_info(dataset),
+                    "business_meaning": dataset.business_meaning_analysis or "暂无业务含义分析结果",
+                    "control_logic": dataset.control_relationships_analysis or "暂无控制逻辑分析结果",
+                    "schema_mapping": extract_schema_mapping(dataset)
+                })
             
             return results
             
@@ -623,12 +685,19 @@ class DatasetService:
                 "质量分析"
             )
             
+            # 从分离存储获取质量分析结果
+            quality_results = self.repository.get_quality_analysis_results(dataset_id)
+            
             # 构建基础结果
             results = build_base_results(dataset)
             
             # 返回实际的质量分析结果
-            if dataset.quality_analysis_results:
+            if quality_results:
                 # 转换numpy类型为Python原生类型
+                quality_results = convert_numpy_types(quality_results)
+                results.update(quality_results)
+            elif dataset.quality_analysis_results:
+                # 兼容旧数据：从dataset对象获取
                 quality_results = convert_numpy_types(dataset.quality_analysis_results)
                 results.update(quality_results)
             else:

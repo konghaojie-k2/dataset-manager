@@ -91,13 +91,27 @@ const Analysis = {
 
             const results = await API.analysis.getQualityAnalysisResults(datasetId);
             
+            // 添加调试日志
+            console.log('🔍 质量分析结果数据:', results);
+            console.log('🔍 数据类型:', typeof results);
+            console.log('🔍 数据键:', results ? Object.keys(results) : 'null');
+            
             if (results) {
+                console.log('🔍 overall_score:', results.overall_score);
+                console.log('🔍 quality_level:', results.quality_level);
+                console.log('🔍 time_columns 长度:', (results.time_columns || []).length);
+                console.log('🔍 parameter_columns 长度:', (results.parameter_columns || []).length);
+                console.log('🔍 key_issues 长度:', (results.key_issues || []).length);
+                console.log('🔍 recommendations 长度:', (results.recommendations || []).length);
+                
                 this.openQualityAnalysisWindow(results);
             } else {
+                console.log('❌ 质量分析结果为空');
                 UI.showMessage('质量分析结果为空', CONFIG.MESSAGE.TYPES.WARNING);
             }
 
         } catch (error) {
+            console.error('❌ 获取质量分析结果失败:', error);
             Utils.log.error('获取质量分析结果失败:', error);
             UI.showMessage('获取质量分析结果失败，请重试', CONFIG.MESSAGE.TYPES.ERROR);
         } finally {
@@ -120,11 +134,17 @@ const Analysis = {
      * 打开质量分析结果窗口
      */
     openQualityAnalysisWindow(results) {
+        console.log('🚀 开始生成质量分析HTML，数据:', results);
+        
         const analysisWindow = window.open('', '_blank', 'width=1400,height=900');
         
         const htmlContent = this.generateQualityAnalysisHTML(results);
+        console.log('📄 生成的HTML长度:', htmlContent.length);
+        
         analysisWindow.document.write(htmlContent);
         analysisWindow.document.close();
+        
+        console.log('✅ 质量分析窗口已打开');
     },
 
     /**
@@ -249,36 +269,103 @@ const Analysis = {
                             <h2>📊 质量评分概览</h2>
                             <div class="score-display">
                                 <div class="score-circle">
-                                    <div class="score-value">${results.overall_score || 0}%</div>
+                                    <div class="score-value">${(results.overall_score || 0).toFixed(1)}</div>
                                     <div class="score-label">总体评分</div>
                                 </div>
-                                <div class="quality-metrics">
-                                    ${(results.quality_metrics || []).map(metric => `
-                                        <div class="metric-item">
-                                            <span class="metric-name">${Utils.escapeHtml(metric.name || '')}</span>
-                                            <span class="metric-score">${metric.score || 0}%</span>
-                                        </div>
-                                    `).join('')}
+                                <div class="quality-level">
+                                    <div class="level-badge level-${results.quality_level || 'unknown'}">
+                                        ${this.getQualityLevelText(results.quality_level)}
+                                    </div>
                                 </div>
                             </div>
                         </section>
 
-                        <!-- 详细分析 -->
-                        <section class="quality-details">
-                            <h2>📋 详细分析</h2>
-                            <div class="details-content">
-                                ${Utils.escapeHtml(results.detailed_analysis || '暂无详细分析结果')}
+                        <!-- 列类型分布 -->
+                        <section class="column-distribution">
+                            <h2>📋 列类型分布</h2>
+                            <div class="distribution-grid">
+                                <div class="distribution-item">
+                                    <div class="distribution-count">${(results.time_columns || []).length}</div>
+                                    <div class="distribution-label">时间列</div>
+                                </div>
+                                <div class="distribution-item">
+                                    <div class="distribution-count">${(results.parameter_columns || []).length}</div>
+                                    <div class="distribution-label">参数列</div>
+                                </div>
+                                <div class="distribution-item">
+                                    <div class="distribution-count">${(results.category_columns || []).length}</div>
+                                    <div class="distribution-label">类目列</div>
+                                </div>
                             </div>
                         </section>
 
-                        <!-- 问题与建议 -->
+                        <!-- 时间列分析 -->
+                        ${(results.time_columns || []).length > 0 ? `
+                        <section class="time-columns">
+                            <h2>⏰ 时间列分析</h2>
+                            <div class="columns-grid">
+                                ${(results.time_columns || []).map(col => `
+                                    <div class="column-card">
+                                        <div class="column-name">${Utils.escapeHtml(col.column_name || '')}</div>
+                                        <div class="column-score">评分: ${(col.overall_score || 0).toFixed(1)}</div>
+                                        <div class="column-issues">
+                                            ${(col.issues || []).length > 0 ? 
+                                                `问题: ${(col.issues || []).slice(0, 2).map(issue => Utils.escapeHtml(String(issue))).join(', ')}` : 
+                                                '无问题'
+                                            }
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </section>
+                        ` : ''}
+
+                        <!-- 参数列分析 -->
+                        ${(results.parameter_columns || []).length > 0 ? `
+                        <section class="parameter-columns">
+                            <h2>📊 参数列分析</h2>
+                            <div class="columns-grid">
+                                ${(results.parameter_columns || []).slice(0, 10).map(col => `
+                                    <div class="column-card">
+                                        <div class="column-name">${Utils.escapeHtml(col.column_name || '')}</div>
+                                        <div class="column-score">评分: ${(col.overall_score || 0).toFixed(1)}</div>
+                                        <div class="column-issues">
+                                            ${(col.issues || []).length > 0 ? 
+                                                `问题: ${(col.issues || []).slice(0, 2).map(issue => Utils.escapeHtml(String(issue))).join(', ')}` : 
+                                                '无问题'
+                                            }
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${(results.parameter_columns || []).length > 10 ? 
+                                `<div class="more-columns">还有 ${(results.parameter_columns || []).length - 10} 个参数列...</div>` : 
+                                ''
+                            }
+                        </section>
+                        ` : ''}
+
+                        <!-- 关键问题 -->
+                        <section class="key-issues">
+                            <h2>⚠️ 关键问题</h2>
+                            <div class="issues-list">
+                                ${(results.key_issues || []).map(issue => `
+                                    <div class="issue-item">
+                                        <div class="issue-icon">⚠️</div>
+                                        <div class="issue-content">${Utils.escapeHtml(String(issue))}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </section>
+
+                        <!-- 改进建议 -->
                         <section class="recommendations">
-                            <h2>💡 问题与建议</h2>
+                            <h2>💡 改进建议</h2>
                             <div class="recommendations-list">
                                 ${(results.recommendations || []).map(rec => `
                                     <div class="recommendation-item">
-                                        <div class="recommendation-type">${Utils.escapeHtml(rec.type || '建议')}</div>
-                                        <div class="recommendation-content">${Utils.escapeHtml(rec.content || '')}</div>
+                                        <div class="recommendation-icon">💡</div>
+                                        <div class="recommendation-content">${Utils.escapeHtml(String(rec))}</div>
                                     </div>
                                 `).join('')}
                             </div>
@@ -288,6 +375,20 @@ const Analysis = {
             </body>
             </html>
         `;
+    },
+
+    /**
+     * 获取质量等级文本
+     */
+    getQualityLevelText(level) {
+        const levelMap = {
+            'excellent': '优秀',
+            'good': '良好',
+            'fair': '一般',
+            'poor': '较差',
+            'critical': '严重'
+        };
+        return levelMap[level] || '未知';
     },
 
     /**
@@ -546,6 +647,147 @@ const Analysis = {
             .recommendation-content {
                 color: #555;
                 line-height: 1.6;
+            }
+            
+            /* 新增样式 - 质量等级 */
+            .quality-level {
+                flex: 1;
+            }
+            
+            .level-badge {
+                display: inline-block;
+                padding: 10px 20px;
+                border-radius: 25px;
+                font-weight: bold;
+                font-size: 1.1em;
+            }
+            
+            .level-excellent {
+                background: #d4edda;
+                color: #155724;
+            }
+            
+            .level-good {
+                background: #d1ecf1;
+                color: #0c5460;
+            }
+            
+            .level-fair {
+                background: #fff3cd;
+                color: #856404;
+            }
+            
+            .level-poor {
+                background: #f8d7da;
+                color: #721c24;
+            }
+            
+            .level-critical {
+                background: #f5c6cb;
+                color: #721c24;
+            }
+            
+            .level-unknown {
+                background: #e2e3e5;
+                color: #383d41;
+            }
+            
+            /* 分布网格 */
+            .distribution-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }
+            
+            .distribution-item {
+                text-align: center;
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 10px;
+                border: 2px solid #e9ecef;
+            }
+            
+            .distribution-count {
+                font-size: 2.5em;
+                font-weight: bold;
+                color: #667eea;
+                margin-bottom: 5px;
+            }
+            
+            .distribution-label {
+                color: #666;
+                font-weight: 500;
+            }
+            
+            /* 列网格 */
+            .columns-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .column-score {
+                color: #667eea;
+                font-weight: bold;
+                margin-bottom: 8px;
+            }
+            
+            .column-issues {
+                color: #666;
+                font-size: 0.9em;
+                line-height: 1.4;
+            }
+            
+            .more-columns {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                margin-top: 15px;
+            }
+            
+            /* 问题列表 */
+            .issues-list {
+                space-y: 12px;
+            }
+            
+            .issue-item {
+                display: flex;
+                align-items: flex-start;
+                background: #fff3cd;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #ffc107;
+                margin-bottom: 12px;
+            }
+            
+            .issue-icon {
+                margin-right: 12px;
+                font-size: 1.2em;
+                flex-shrink: 0;
+            }
+            
+            .issue-content {
+                color: #856404;
+                line-height: 1.5;
+            }
+            
+            /* 建议列表 */
+            .recommendation-item {
+                display: flex;
+                align-items: flex-start;
+                background: #d1ecf1;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #17a2b8;
+                margin-bottom: 12px;
+            }
+            
+            .recommendation-icon {
+                margin-right: 12px;
+                font-size: 1.2em;
+                flex-shrink: 0;
             }
             
             @media print {

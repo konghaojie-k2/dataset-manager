@@ -35,6 +35,12 @@ class DatasetRepository:
         self.json_dir = self.metadata_dir / "analysis_results"
         self.json_dir.mkdir(exist_ok=True)
         
+        # 分离存储目录
+        self.business_analysis_dir = self.json_dir / "business"
+        self.quality_analysis_dir = self.json_dir / "quality"
+        self.business_analysis_dir.mkdir(exist_ok=True)
+        self.quality_analysis_dir.mkdir(exist_ok=True)
+        
         # 内存缓存（可选，用于提高性能）
         self._cache: Dict[str, DatasetMetadata] = {}
         
@@ -105,6 +111,177 @@ class DatasetRepository:
         except Exception as e:
             logger.warning(f"保存分析结果到JSON失败: {e}")
             # 不影响主流程
+    
+    def save_business_analysis_results(self, dataset_id: str, business_results: Dict) -> None:
+        """保存业务分析结果到独立文件
+        
+        Args:
+            dataset_id: 数据集ID
+            business_results: 业务分析结果
+        """
+        try:
+            business_file = self.business_analysis_dir / f"{dataset_id}_business_analysis.json"
+            
+            with open(business_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    "dataset_id": dataset_id,
+                    "analysis_timestamp": datetime.now().isoformat(),
+                    "business_analysis_results": business_results
+                }, f, ensure_ascii=False, indent=2, default=str)
+            
+            # 在数据库中记录分析结果文件引用
+            self.db_repository.save_analysis_result(
+                dataset_id=dataset_id,
+                analysis_type="business_analysis",
+                result_file_path=str(business_file)
+            )
+            
+            logger.debug(f"业务分析结果已保存: {business_file}")
+            
+        except Exception as e:
+            logger.error(f"保存业务分析结果失败: {e}")
+            raise
+    
+    def save_quality_analysis_results(self, dataset_id: str, quality_results: Dict) -> None:
+        """保存质量分析结果到独立文件
+        
+        Args:
+            dataset_id: 数据集ID
+            quality_results: 质量分析结果
+        """
+        try:
+            quality_file = self.quality_analysis_dir / f"{dataset_id}_quality_analysis.json"
+            
+            with open(quality_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    "dataset_id": dataset_id,
+                    "analysis_timestamp": datetime.now().isoformat(),
+                    "quality_analysis_results": quality_results
+                }, f, ensure_ascii=False, indent=2, default=str)
+            
+            # 在数据库中记录分析结果文件引用
+            self.db_repository.save_analysis_result(
+                dataset_id=dataset_id,
+                analysis_type="quality_analysis",
+                result_file_path=str(quality_file)
+            )
+            
+            logger.debug(f"质量分析结果已保存: {quality_file}")
+            
+        except Exception as e:
+            logger.error(f"保存质量分析结果失败: {e}")
+            raise
+    
+    def get_business_analysis_results(self, dataset_id: str) -> Optional[Dict]:
+        """获取业务分析结果
+        
+        Args:
+            dataset_id: 数据集ID
+            
+        Returns:
+            Optional[Dict]: 业务分析结果
+        """
+        try:
+            business_file = self.business_analysis_dir / f"{dataset_id}_business_analysis.json"
+            
+            if business_file.exists():
+                with open(business_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return data.get("business_analysis_results")
+            
+            # 兼容旧格式：从统一文件中读取
+            return self._get_legacy_business_analysis_results(dataset_id)
+            
+        except Exception as e:
+            logger.error(f"获取业务分析结果失败: {e}")
+            return None
+    
+    def get_quality_analysis_results(self, dataset_id: str) -> Optional[Dict]:
+        """获取质量分析结果
+        
+        Args:
+            dataset_id: 数据集ID
+            
+        Returns:
+            Optional[Dict]: 质量分析结果
+        """
+        try:
+            quality_file = self.quality_analysis_dir / f"{dataset_id}_quality_analysis.json"
+            
+            if quality_file.exists():
+                with open(quality_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return data.get("quality_analysis_results")
+            
+            # 兼容旧格式：从统一文件中读取
+            return self._get_legacy_quality_analysis_results(dataset_id)
+            
+        except Exception as e:
+            logger.error(f"获取质量分析结果失败: {e}")
+            return None
+    
+    def _get_legacy_business_analysis_results(self, dataset_id: str) -> Optional[Dict]:
+        """从旧格式文件中获取业务分析结果（兼容性方法）
+        
+        Args:
+            dataset_id: 数据集ID
+            
+        Returns:
+            Optional[Dict]: 业务分析结果
+        """
+        try:
+            legacy_file = self.json_dir / f"{dataset_id}_analysis.json"
+            
+            if legacy_file.exists():
+                with open(legacy_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                analysis_results = data.get("analysis_results", {})
+                
+                # 提取业务分析相关字段
+                business_results = {
+                    "device_time_identification": analysis_results.get("device_time_identification"),
+                    "business_meaning_analysis": analysis_results.get("business_meaning_analysis"),
+                    "control_relationships_analysis": analysis_results.get("control_relationships_analysis"),
+                    "basic_analysis": analysis_results.get("basic_analysis"),
+                    "detailed_analysis": analysis_results.get("detailed_analysis"),
+                    "insights": analysis_results.get("insights", []),
+                    "recommendations": analysis_results.get("recommendations")
+                }
+                
+                # 过滤掉None值
+                return {k: v for k, v in business_results.items() if v is not None}
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"从旧格式文件获取业务分析结果失败: {e}")
+            return None
+    
+    def _get_legacy_quality_analysis_results(self, dataset_id: str) -> Optional[Dict]:
+        """从旧格式文件中获取质量分析结果（兼容性方法）
+        
+        Args:
+            dataset_id: 数据集ID
+            
+        Returns:
+            Optional[Dict]: 质量分析结果
+        """
+        try:
+            legacy_file = self.json_dir / f"{dataset_id}_analysis.json"
+            
+            if legacy_file.exists():
+                with open(legacy_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                analysis_results = data.get("analysis_results", {})
+                return analysis_results.get("quality_analysis_results")
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"从旧格式文件获取质量分析结果失败: {e}")
+            return None
     
     def get_by_id(self, dataset_id: str) -> Optional[DatasetMetadata]:
         """根据ID获取数据集
