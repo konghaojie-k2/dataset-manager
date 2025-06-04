@@ -158,8 +158,10 @@ const Analysis = {
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>业务分析结果</title>
+                <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
                 <style>
                     ${this.getAnalysisStyles()}
+                    ${MarkdownRenderer.getStyles()}
                 </style>
             </head>
             <body>
@@ -192,16 +194,16 @@ const Analysis = {
                         <!-- 业务含义分析 -->
                         <section class="business-meaning">
                             <h2>💼 业务含义分析</h2>
-                            <div class="meaning-content">
-                                ${Utils.escapeHtml(results.business_meaning || '暂无业务含义分析结果')}
+                            <div class="meaning-content markdown-content">
+                                ${MarkdownRenderer.render(results.business_meaning || '暂无业务含义分析结果')}
                             </div>
                         </section>
 
                         <!-- 控制逻辑分析 -->
                         <section class="control-logic">
                             <h2>⚙️ 控制逻辑分析</h2>
-                            <div class="logic-content">
-                                ${Utils.escapeHtml(results.control_logic || '暂无控制逻辑分析结果')}
+                            <div class="logic-content markdown-content">
+                                ${MarkdownRenderer.render(results.control_logic || '暂无控制逻辑分析结果')}
                             </div>
                         </section>
 
@@ -233,6 +235,19 @@ const Analysis = {
                         </section>
                     </div>
                 </div>
+                <script>
+                    // 初始化Mermaid
+                    mermaid.initialize({ 
+                        startOnLoad: true,
+                        theme: 'default',
+                        securityLevel: 'loose'
+                    });
+                    
+                    // 渲染所有Mermaid图表
+                    document.addEventListener('DOMContentLoaded', function() {
+                        mermaid.init();
+                    });
+                </script>
             </body>
             </html>
         `;
