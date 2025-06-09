@@ -18,6 +18,16 @@ from .dataset import (
     TagUpdateRequest
 )
 
+# 标签相关结构
+from .tag import (
+    Tag,
+    TagCreateRequest,
+    TagUpdateRequest as TagUpdateRequestModel,
+    TagListResponse,
+    DatasetTagUpdateRequest,
+    TagCategory
+)
+
 # 分析相关结构
 from .analysis import (
     AnalysisType,
@@ -70,6 +80,14 @@ __all__ = [
     "UploadRequest",
     "MetadataExtractionRequest",
     "TagUpdateRequest",
+    
+    # 标签结构
+    "Tag",
+    "TagCreateRequest",
+    "TagUpdateRequestModel",
+    "TagListResponse",
+    "DatasetTagUpdateRequest",
+    "TagCategory",
     
     # 分析结构
     "AnalysisType",

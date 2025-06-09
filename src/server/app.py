@@ -16,10 +16,12 @@ from loguru import logger
 
 from ..config.settings import get_settings, setup_logging
 from ..core.dataset_service import DatasetService
+from ..core.tag_service import TagService
 from .routes import router
 from .mcp_routes import mcp_router
 from .api.v1.reports import router as reports_router
-from .dependencies import set_dataset_service
+from .api.v1.tags import router as tags_router
+from .dependencies import set_dataset_service, set_tag_service
 from .middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 
 
@@ -52,9 +54,14 @@ async def lifespan(app: FastAPI):
     # 设置依赖注入
     set_dataset_service(dataset_service_instance)
     
+    # 初始化标签服务
+    tag_service_instance = TagService(metadata_dir=config.metadata_dir)
+    set_tag_service(tag_service_instance)
+    
     # 更新路由模块中的服务实例（向后兼容）
     from . import routes
     routes.dataset_service = dataset_service_instance
+    routes.tag_service = tag_service_instance
     
     logger.info("数据管理系统启动完成")
     
@@ -92,6 +99,7 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(mcp_router)
     app.include_router(reports_router)
+    app.include_router(tags_router)
 
     # 静态文件服务（如果有前端文件）
     web_dir = Path("web")

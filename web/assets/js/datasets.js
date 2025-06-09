@@ -71,7 +71,7 @@ const Datasets = {
                         <div class="dataset-name">${Utils.escapeHtml(dataset.name)}</div>
                         <div class="dataset-upload-time">${Utils.formatDate(dataset.upload_time)}</div>
                         ${dataset.description ? `<div class="dataset-description" title="${Utils.escapeHtml(dataset.description)}">${Utils.escapeHtml(dataset.description)}</div>` : ''}
-                        ${this.generateTagsHtml(dataset.tags)}
+                        ${this.generateTagsHtml(dataset.tags, dataset.id)}
                     </div>
                     <div class="dataset-stats">
                         <div class="stat-item">
@@ -102,12 +102,17 @@ const Datasets = {
     /**
      * 生成标签HTML
      */
-    generateTagsHtml(tags) {
-        if (!tags || tags.length === 0) return '';
+    generateTagsHtml(tags, datasetId) {
+        const tagsHtml = tags && tags.length > 0 
+            ? tags.map(tag => `<span class="tag">${Utils.escapeHtml(tag)}</span>`).join('')
+            : '';
         
         return `
-            <div class="dataset-tags">
-                ${tags.map(tag => `<span class="tag">${Utils.escapeHtml(tag)}</span>`).join('')}
+            <div class="dataset-tags" data-dataset-id="${datasetId}">
+                ${tagsHtml}
+                <span class="tag-edit-trigger" onclick="Datasets.editDatasetTags('${datasetId}')" title="编辑标签">
+                    ${tags && tags.length > 0 ? '🏷️' : '+ 添加标签'}
+                </span>
             </div>
         `;
     },
@@ -364,6 +369,108 @@ const Datasets = {
             UI.showMessage('下载失败，请重试', CONFIG.MESSAGE.TYPES.ERROR);
         } finally {
             UI.showLoading(false);
+        }
+    },
+
+    /**
+     * 编辑数据集标签
+     */
+    async editDatasetTags(datasetId) {
+        try {
+            // 获取数据集信息
+            const dataset = AppState.datasets.find(d => d.id === datasetId);
+            if (!dataset) {
+                UI.showMessage('数据集不存在', CONFIG.MESSAGE.TYPES.ERROR);
+                return;
+            }
+
+            // 获取当前标签
+            const currentTags = dataset.tags || [];
+
+            // 创建标签编辑弹出框
+            const dialogHtml = `
+                <div class="modal-overlay" id="tagEditModal">
+                    <div class="modal-content tag-edit-popup">
+                        <div class="popup-header">
+                            <div class="popup-title">
+                                <span class="popup-icon">🏷️</span>
+                                <span>编辑标签</span>
+                            </div>
+                            <button type="button" class="popup-close" onclick="Datasets.closeTagEditModal()">×</button>
+                        </div>
+                        <div class="popup-body">
+                            <div class="dataset-info-compact">
+                                <span class="dataset-name">${Utils.escapeHtml(dataset.name)}</span>
+                            </div>
+                            <div class="tag-selector-container" id="tagSelectorContainer">
+                                <!-- 标签选择器将在这里渲染 -->
+                            </div>
+                        </div>
+                        <div class="popup-footer">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="Datasets.closeTagEditModal()">取消</button>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="Datasets.saveDatasetTags('${datasetId}')">保存</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', dialogHtml);
+
+            // 确保标签数据已加载，然后渲染标签选择器
+            await Tags.loadTags();
+            Tags.renderTagSelector('#tagSelectorContainer', currentTags, {
+                allowCreate: true,
+                placeholder: '选择或输入标签...',
+                showCategories: true
+            });
+
+            Utils.log.debug('标签编辑对话框已打开:', datasetId);
+
+        } catch (error) {
+            Utils.log.error('打开标签编辑对话框失败:', error);
+            UI.showMessage('打开标签编辑失败', CONFIG.MESSAGE.TYPES.ERROR);
+        }
+    },
+
+    /**
+     * 关闭标签编辑对话框
+     */
+    closeTagEditModal() {
+        const modal = Utils.dom.find('#tagEditModal');
+        if (modal) {
+            modal.remove();
+        }
+    },
+
+    /**
+     * 保存数据集标签
+     */
+    async saveDatasetTags(datasetId) {
+        try {
+            const tagSelector = Utils.dom.find('#tagSelectorContainer .tag-selector');
+            if (!tagSelector) {
+                UI.showMessage('标签选择器未找到', CONFIG.MESSAGE.TYPES.ERROR);
+                return;
+            }
+
+            const selectedTags = Tags.getSelectedTags(tagSelector);
+            
+            Utils.log.debug('保存数据集标签:', datasetId, selectedTags);
+
+            // 调用API更新标签
+            const updatedTags = await Tags.updateDatasetTags(datasetId, selectedTags);
+
+            // 关闭对话框
+            this.closeTagEditModal();
+
+            // 刷新数据集列表以确保数据同步
+            await App.refreshDatasets();
+
+            UI.showMessage('标签保存成功', CONFIG.MESSAGE.TYPES.SUCCESS);
+
+        } catch (error) {
+            Utils.log.error('保存数据集标签失败:', error);
+            UI.showMessage('保存标签失败', CONFIG.MESSAGE.TYPES.ERROR);
         }
     },
 
