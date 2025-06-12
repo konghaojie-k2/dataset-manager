@@ -20,10 +20,14 @@ class MarkdownRenderer {
                   .replace(/</g, '&lt;')
                   .replace(/>/g, '&gt;');
 
-        // 处理Mermaid图表
-        html = html.replace(/```mermaid\n([\s\S]*?)```/g, (match, code) => {
+        // 处理Mermaid图表并修复常见语法错误
+        html = html.replace(/```mermaid\s*\n([\s\S]*?)```/g, (match, code) => {
             const mermaidId = 'mermaid-' + Math.random().toString(36).substr(2, 9);
-            return `<div class="mermaid-container"><div id="${mermaidId}" class="mermaid">${code.trim()}</div></div>`;
+            // 清理和修复Mermaid代码
+            const cleanCode = this.fixMermaidSyntax(code.trim());
+            return `<div class="mermaid-container">
+                <div id="${mermaidId}" class="mermaid">${cleanCode}</div>
+            </div>`;
         });
 
         // 处理代码块（三个反引号）
@@ -63,6 +67,80 @@ class MarkdownRenderer {
         html = this.renderParagraphs(html);
 
         return html;
+    }
+
+    /**
+     * 修复Mermaid语法错误
+     * @param {string} mermaidCode - 原始Mermaid代码
+     * @returns {string} - 修复后的Mermaid代码
+     */
+    static fixMermaidSyntax(mermaidCode) {
+        if (!mermaidCode || typeof mermaidCode !== 'string') {
+            return mermaidCode;
+        }
+
+        let fixedCode = mermaidCode.trim();
+        
+        try {
+            // 1. 修复graph声明语法错误
+            // 将 "graph TDA[...]" 修复为 "graph TD"
+            fixedCode = fixedCode.replace(/^graph\s+TD([A-Z])\[(.*?)\]/gm, (match, letter, content) => {
+                // 如果是 graph TDA[...] 这种错误格式，修复为正确格式
+                return `graph TD\n    A[${content}]`;
+            });
+            
+            // 2. 修复节点定义中的连续节点问题
+            // 将 "A --> B[...]B --> C[...]" 修复为换行格式
+            fixedCode = fixedCode.replace(/(\]\s*)(([A-Z][A-Z0-9]*)\s*-->\s*([A-Z][A-Z0-9]*)\[)/g, (match, p1, p2, p3, p4) => {
+                return p1 + '\n    ' + p2;
+            });
+            
+            // 3. 修复连续的节点连接，确保换行
+            fixedCode = fixedCode.replace(/(\]\s*)([A-Z][A-Z0-9]*\s*-->)/g, '$1\n    $2');
+            
+            // 4. 修复箭头连接语法
+            fixedCode = fixedCode.replace(/-->\s*([A-Z][A-Z0-9]*)\s*([A-Z][A-Z0-9]*)\s*-->/g, '--> $1\n    $2 -->');
+            
+            // 5. 确保每个节点定义都在新行
+            const lines = fixedCode.split('\n');
+            const fixedLines = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                
+                if (i === 0 && line.startsWith('graph')) {
+                    // 图表类型声明行
+                    fixedLines.push(line);
+                } else if (line && !line.startsWith('graph')) {
+                    // 节点定义行，确保适当缩进
+                    if (!line.startsWith('    ') && !line.startsWith('subgraph') && !line.startsWith('end')) {
+                        line = '    ' + line;
+                    }
+                    fixedLines.push(line);
+                } else if (line) {
+                    fixedLines.push(line);
+                }
+            }
+            
+            fixedCode = fixedLines.join('\n');
+            
+            // 6. 确保subgraph语法正确
+            fixedCode = fixedCode.replace(/subgraph\s+"([^"]+)"/g, 'subgraph "$1"');
+            
+            // 7. 最终清理：移除多余的空行
+            fixedCode = fixedCode.replace(/\n\s*\n\s*\n/g, '\n\n');
+            
+            console.log('🔧 Mermaid语法修复完成');
+            console.log('原始代码:', mermaidCode.substring(0, 100) + '...');
+            console.log('修复后代码:', fixedCode.substring(0, 100) + '...');
+            
+            return fixedCode;
+            
+        } catch (error) {
+            console.error('❌ Mermaid语法修复失败:', error);
+            // 如果修复失败，返回原始代码
+            return mermaidCode;
+        }
     }
 
     /**
@@ -311,15 +389,36 @@ class MarkdownRenderer {
             .mermaid-container {
                 margin: 16px 0;
                 text-align: center;
-                background-color: #f8f9fa;
+                background-color: #ffffff;
                 border: 1px solid #e1e4e8;
                 border-radius: 6px;
-                padding: 16px;
+                padding: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
             
             .mermaid {
                 max-width: 100%;
                 overflow: auto;
+                min-height: 100px;
+                display: inline-block;
+            }
+            
+            /* Mermaid SVG样式优化 */
+            .mermaid svg {
+                max-width: 100%;
+                height: auto;
+            }
+            
+            /* Mermaid错误显示样式 */
+            .mermaid-error {
+                color: #d63384;
+                background: #f8d7da;
+                border: 1px solid #f5c2c7;
+                border-radius: 4px;
+                padding: 12px;
+                margin: 8px 0;
+                font-family: monospace;
+                font-size: 14px;
             }
         `;
     }

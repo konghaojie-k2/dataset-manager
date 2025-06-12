@@ -67,13 +67,25 @@ const Analysis = {
 
             const results = await API.analysis.getBusinessAnalysisResults(datasetId);
             
+            // 添加详细的调试日志
+            console.log('🔍 业务分析结果数据:', results);
+            console.log('🔍 数据类型:', typeof results);
+            console.log('🔍 数据键:', results ? Object.keys(results) : 'null');
+            
             if (results) {
+                console.log('🔍 dataset_name:', results.dataset_name);
+                console.log('🔍 business_meaning 长度:', results.business_meaning ? results.business_meaning.length : 0);
+                console.log('🔍 control_logic 长度:', results.control_logic ? results.control_logic.length : 0);
+                console.log('🔍 columns 数量:', (results.columns || []).length);
+                
                 this.openBusinessAnalysisWindow(results);
             } else {
+                console.log('❌ 业务分析结果为空');
                 UI.showMessage('业务分析结果为空', CONFIG.MESSAGE.TYPES.WARNING);
             }
 
         } catch (error) {
+            console.error('❌ 获取业务分析结果失败:', error);
             Utils.log.error('获取业务分析结果失败:', error);
             UI.showMessage('获取业务分析结果失败，请重试', CONFIG.MESSAGE.TYPES.ERROR);
         } finally {
@@ -123,11 +135,26 @@ const Analysis = {
      * 打开业务分析结果窗口
      */
     openBusinessAnalysisWindow(results) {
+        console.log('🚀 开始生成业务分析HTML，数据:', results);
+        
         const analysisWindow = window.open('', '_blank', 'width=1400,height=900');
         
+        if (!analysisWindow) {
+            console.error('❌ 无法打开新窗口，可能被浏览器阻止');
+            UI.showMessage('无法打开新窗口，请检查浏览器弹窗设置', CONFIG.MESSAGE.TYPES.ERROR);
+            return;
+        }
+        
+        console.log('✅ 新窗口已创建');
+        
         const htmlContent = this.generateBusinessAnalysisHTML(results);
+        console.log('📄 生成的HTML长度:', htmlContent.length);
+        console.log('📄 HTML前500字符:', htmlContent.substring(0, 500));
+        
         analysisWindow.document.write(htmlContent);
         analysisWindow.document.close();
+        
+        console.log('✅ 业务分析窗口已打开');
     },
 
     /**
@@ -151,106 +178,61 @@ const Analysis = {
      * 生成业务分析结果HTML
      */
     generateBusinessAnalysisHTML(results) {
-        return `
-            <!DOCTYPE html>
-            <html lang="zh-CN">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>业务分析结果</title>
-                <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
-                <style>
-                    ${this.getAnalysisStyles()}
-                    ${MarkdownRenderer.getStyles()}
-                </style>
-            </head>
-            <body>
-                <div class="analysis-container">
-                    <div class="analysis-header">
-                        <h1>💡 业务分析结果</h1>
-                        <div class="analysis-meta">
-                            <span>数据集: ${Utils.escapeHtml(results.dataset_name || '未知')}</span>
-                            <span>分析时间: ${Utils.formatFullDateTime(results.analysis_time || new Date())}</span>
+        console.log('开始生成业务分析HTML，数据:', results);
+        
+        try {
+            const html = `
+                <!DOCTYPE html>
+                <html lang="zh-CN">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>业务分析结果</title>
+                    <style>
+                        ${this.getAnalysisStyles()}
+                        ${MarkdownRenderer.getStyles()}
+                    </style>
+                </head>
+                <body>
+                    <div class="analysis-container">
+                        <div class="analysis-header">
+                            <h1>💡 业务分析结果</h1>
+                            <div class="analysis-meta">
+                                <span>数据集: ${Utils.escapeHtml(results.dataset_name || '未知')}</span>
+                                <span>分析时间: ${Utils.formatFullDateTime(results.analysis_time || new Date())}</span>
+                            </div>
+                        </div>
+
+                        <div class="analysis-content">
+                            <!-- 业务含义分析 -->
+                            <section class="business-meaning">
+                                <h2>💼 业务含义分析</h2>
+                                <div class="meaning-content markdown-content">
+                                    ${MarkdownRenderer.render(results.business_meaning || '暂无业务含义分析结果')}
+                                </div>
+                            </section>
+
+                            <!-- 控制逻辑分析 -->
+                            <section class="control-logic">
+                                <h2>⚙️ 控制逻辑分析</h2>
+                                <div class="logic-content markdown-content">
+                                    ${MarkdownRenderer.render(results.control_logic || '暂无控制逻辑分析结果')}
+                                </div>
+                            </section>
                         </div>
                     </div>
 
-                    <div class="analysis-content">
-                        <!-- 列识别结果 -->
-                        <section class="column-identification">
-                            <h2>📊 列识别与分析结果</h2>
-                            <div class="column-grid">
-                                ${(results.columns || []).map(column => `
-                                    <div class="column-card ${column.type}-column">
-                                        <div class="column-name">${Utils.escapeHtml(column.name)}</div>
-                                        <div class="column-type type-${column.type}">
-                                            ${column.type === 'device' ? '设备列' : column.type === 'time' ? '时间列' : '业务列'}
-                                        </div>
-                                        <div class="column-description">${Utils.escapeHtml(column.description || '')}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </section>
-
-                        <!-- 业务含义分析 -->
-                        <section class="business-meaning">
-                            <h2>💼 业务含义分析</h2>
-                            <div class="meaning-content markdown-content">
-                                ${MarkdownRenderer.render(results.business_meaning || '暂无业务含义分析结果')}
-                            </div>
-                        </section>
-
-                        <!-- 控制逻辑分析 -->
-                        <section class="control-logic">
-                            <h2>⚙️ 控制逻辑分析</h2>
-                            <div class="logic-content markdown-content">
-                                ${MarkdownRenderer.render(results.control_logic || '暂无控制逻辑分析结果')}
-                            </div>
-                        </section>
-
-                        <!-- 中文Schema映射 -->
-                        <section class="schema-mapping">
-                            <h2>📋 中文Schema映射</h2>
-                            <div class="mapping-table">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>原始列名</th>
-                                            <th>中文名称</th>
-                                            <th>数据类型</th>
-                                            <th>业务描述</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${(results.schema_mapping || []).map(mapping => `
-                                            <tr>
-                                                <td>${Utils.escapeHtml(mapping.original_name || '')}</td>
-                                                <td>${Utils.escapeHtml(mapping.chinese_name || '')}</td>
-                                                <td>${Utils.escapeHtml(mapping.data_type || '')}</td>
-                                                <td>${Utils.escapeHtml(mapping.description || '')}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </section>
-                    </div>
-                </div>
-                <script>
-                    // 初始化Mermaid
-                    mermaid.initialize({ 
-                        startOnLoad: true,
-                        theme: 'default',
-                        securityLevel: 'loose'
-                    });
-                    
-                    // 渲染所有Mermaid图表
-                    document.addEventListener('DOMContentLoaded', function() {
-                        mermaid.init();
-                    });
-                </script>
-            </body>
-            </html>
-        `;
+                    ${this.getMermaidScript()}
+                </body>
+                </html>
+            `;
+            
+            console.log('业务分析HTML生成成功');
+            return html;
+        } catch (error) {
+            console.error('生成业务分析HTML失败:', error);
+            return this.generateErrorHTML('生成业务分析结果页面失败: ' + error.message);
+        }
     },
 
     /**
@@ -387,6 +369,7 @@ const Analysis = {
                         </section>
                     </div>
                 </div>
+                ${this.getMermaidScript()}
             </body>
             </html>
         `;
@@ -465,76 +448,7 @@ const Analysis = {
                 margin-bottom: 20px;
             }
             
-            /* 列识别样式 */
-            .column-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                gap: 20px;
-            }
-            
-            .column-card {
-                background: #f8f9fa;
-                border-radius: 10px;
-                padding: 20px;
-                border-left: 5px solid #667eea;
-                transition: all 0.3s ease;
-            }
-            
-            .column-card:hover {
-                transform: translateY(-3px);
-                box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            }
-            
-            .column-card.device-column {
-                border-left-color: #28a745;
-                background: #f0fff4;
-            }
-            
-            .column-card.time-column {
-                border-left-color: #ffc107;
-                background: #fffbf0;
-            }
-            
-            .column-card.business-column {
-                border-left-color: #17a2b8;
-                background: #f0f9ff;
-            }
-            
-            .column-name {
-                font-size: 1.2em;
-                font-weight: bold;
-                color: #333;
-                margin-bottom: 10px;
-            }
-            
-            .column-type {
-                display: inline-block;
-                padding: 5px 12px;
-                border-radius: 20px;
-                font-size: 0.8em;
-                font-weight: bold;
-                margin-bottom: 10px;
-            }
-            
-            .type-device {
-                background: #d4edda;
-                color: #155724;
-            }
-            
-            .type-time {
-                background: #fff3cd;
-                color: #856404;
-            }
-            
-            .type-business {
-                background: #d1ecf1;
-                color: #0c5460;
-            }
-            
-            .column-description {
-                color: #666;
-                line-height: 1.5;
-            }
+
             
             /* 内容样式 */
             .meaning-content, .logic-content, .details-content {
@@ -810,6 +724,195 @@ const Analysis = {
                 .analysis-container { box-shadow: none; }
                 .analysis-header { background: #333 !important; }
             }
+        `;
+    },
+
+    getMermaidScript() {
+        return `
+            <script>
+                // 动态加载Mermaid脚本，避免document.write警告
+                function loadMermaidScript() {
+                    return new Promise((resolve, reject) => {
+                        // 检查是否已经加载
+                        if (window.mermaid) {
+                            resolve();
+                            return;
+                        }
+                        
+                        // 创建script标签
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js';
+                        script.crossOrigin = 'anonymous';
+                        script.onload = () => {
+                            console.log('✅ Mermaid脚本加载成功');
+                            resolve();
+                        };
+                        script.onerror = (error) => {
+                            console.error('❌ Mermaid CDN加载失败，尝试使用备用CDN');
+                            // 尝试备用CDN
+                            const fallbackScript = document.createElement('script');
+                            fallbackScript.src = 'https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js';
+                            fallbackScript.crossOrigin = 'anonymous';
+                            fallbackScript.onload = () => {
+                                console.log('✅ Mermaid备用脚本加载成功');
+                                resolve();
+                            };
+                            fallbackScript.onerror = () => {
+                                console.error('❌ 备用CDN加载失败，尝试本地文件');
+                                // 尝试本地文件
+                                const localScript = document.createElement('script');
+                                localScript.src = 'assets/js/libs/mermaid.min.js';
+                                localScript.onload = () => {
+                                    console.log('✅ Mermaid本地脚本加载成功');
+                                    resolve();
+                                };
+                                localScript.onerror = () => {
+                                    console.error('❌ 所有Mermaid加载方式都失败');
+                                    reject(new Error('Mermaid脚本加载失败'));
+                                };
+                                document.head.appendChild(localScript);
+                            };
+                            document.head.appendChild(fallbackScript);
+                        };
+                        document.head.appendChild(script);
+                    });
+                }
+                
+                // 初始化Mermaid
+                function initializeMermaid() {
+                    if (window.mermaid) {
+                        mermaid.initialize({
+                            startOnLoad: false, // 手动控制渲染
+                            theme: 'default',
+                            flowchart: {
+                                useMaxWidth: true,
+                                htmlLabels: true
+                            },
+                            securityLevel: 'loose',
+                            fontFamily: 'Microsoft YaHei, Arial, sans-serif'
+                        });
+                        return true;
+                    }
+                    return false;
+                }
+                
+                // 渲染所有Mermaid图表
+                async function renderMermaidDiagrams() {
+                    try {
+                        // 确保Mermaid已加载
+                        await loadMermaidScript();
+                        
+                        // 初始化Mermaid
+                        if (!initializeMermaid()) {
+                            throw new Error('Mermaid初始化失败');
+                        }
+                        
+                        const mermaidElements = document.querySelectorAll('.mermaid');
+                        console.log(\`🎨 找到 \${mermaidElements.length} 个Mermaid图表待渲染\`);
+                        
+                        for (let i = 0; i < mermaidElements.length; i++) {
+                            const element = mermaidElements[i];
+                            if (!element.getAttribute('data-processed')) {
+                                try {
+                                    const graphId = 'mermaid-graph-' + i + '-' + Date.now();
+                                    const graphDefinition = element.textContent.trim();
+                                    
+                                    console.log(\`🎨 渲染第 \${i + 1} 个图表，ID: \${graphId}\`);
+                                    console.log(\`📋 图表定义: \${graphDefinition.substring(0, 100)}...\`);
+                                    
+                                    // 使用新的mermaid API
+                                    const { svg } = await mermaid.render(graphId, graphDefinition);
+                                    element.innerHTML = svg;
+                                    element.setAttribute('data-processed', 'true');
+                                    console.log(\`✅ 图表 \${i + 1} 渲染成功\`);
+                                } catch (error) {
+                                    console.error(\`❌ 图表 \${i + 1} 渲染失败:\`, error);
+                                    element.innerHTML = \`
+                                        <div style="color: #d63384; background: #f8d7da; border: 1px solid #f5c2c7; border-radius: 4px; padding: 15px; margin: 10px 0; font-family: monospace;">
+                                            <strong>🚫 Mermaid图表渲染失败</strong><br/>
+                                            <details style="margin-top: 8px;">
+                                                <summary style="cursor: pointer; color: #842029;">查看错误详情</summary>
+                                                <pre style="margin-top: 8px; font-size: 12px; white-space: pre-wrap;">\${error.message}</pre>
+                                            </details>
+                                        </div>
+                                    \`;
+                                    element.setAttribute('data-processed', 'error');
+                                }
+                            }
+                        }
+                        
+                        console.log('🎉 所有Mermaid图表渲染完成');
+                    } catch (error) {
+                        console.error('❌ Mermaid图表渲染过程失败:', error);
+                        // 显示全局错误信息
+                        const mermaidElements = document.querySelectorAll('.mermaid:not([data-processed])');
+                        mermaidElements.forEach(element => {
+                            element.innerHTML = \`
+                                <div style="color: #d63384; background: #f8d7da; border: 1px solid #f5c2c7; border-radius: 4px; padding: 15px; margin: 10px 0; text-align: center;">
+                                    <strong>🚫 Mermaid服务不可用</strong><br/>
+                                    <small style="color: #842029;">网络连接问题或CDN服务异常，请稍后重试</small>
+                                </div>
+                            \`;
+                            element.setAttribute('data-processed', 'failed');
+                        });
+                    }
+                }
+                
+                // 页面加载完成后延迟渲染，确保DOM完全加载
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        setTimeout(renderMermaidDiagrams, 200);
+                    });
+                } else {
+                    setTimeout(renderMermaidDiagrams, 200);
+                }
+                
+                // 导出重新渲染函数，供外部调用
+                window.rerenderMermaid = renderMermaidDiagrams;
+            </script>
+        `;
+    },
+
+    generateErrorHTML(message) {
+        return `
+            <!DOCTYPE html>
+            <html lang="zh-CN">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>错误</title>
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+                        padding: 50px;
+                        background: #f5f5f5;
+                    }
+                    .error-container {
+                        background: white;
+                        padding: 30px;
+                        border-radius: 10px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        text-align: center;
+                    }
+                    .error-icon {
+                        font-size: 48px;
+                        margin-bottom: 20px;
+                    }
+                    .error-message {
+                        color: #dc3545;
+                        font-size: 18px;
+                        margin-bottom: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="error-container">
+                    <div class="error-icon">❌</div>
+                    <div class="error-message">${Utils.escapeHtml(message)}</div>
+                    <button onclick="window.close()">关闭窗口</button>
+                </div>
+            </body>
+            </html>
         `;
     }
 }; 

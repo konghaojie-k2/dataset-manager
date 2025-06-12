@@ -60,25 +60,9 @@ class ReportManager:
             saved_files = {}
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
-            # 1. 保存设备时间列识别结果
-            if analysis_results.get("device_time_identification"):
-                device_file = dataset_dir / f"01_设备时间列识别_{timestamp}.md"
-                self._save_markdown_file(
-                    device_file,
-                    "设备列和时间列识别结果",
-                    analysis_results["device_time_identification"],
-                    {
-                        "dataset_id": dataset_id,
-                        "dataset_name": dataset_name,
-                        "analysis_type": "device_time_identification",
-                        "generated_at": datetime.now().isoformat()
-                    }
-                )
-                saved_files["device_time_identification"] = device_file
-            
-            # 2. 保存业务含义分析结果
+                        # 1. 保存业务含义分析结果
             if analysis_results.get("business_meaning_analysis"):
-                business_file = dataset_dir / f"02_业务含义分析_{timestamp}.md"
+                business_file = dataset_dir / f"01_业务含义分析_{timestamp}.md"
                 self._save_markdown_file(
                     business_file,
                     "业务含义分析结果",
@@ -92,9 +76,9 @@ class ReportManager:
                 )
                 saved_files["business_meaning_analysis"] = business_file
             
-            # 3. 保存控制原理分析结果
+            # 2. 保存控制原理分析结果
             if analysis_results.get("control_relationships_analysis"):
-                control_file = dataset_dir / f"03_控制原理分析_{timestamp}.md"
+                control_file = dataset_dir / f"02_控制原理分析_{timestamp}.md"
                 self._save_markdown_file(
                     control_file,
                     "控制原理分析结果",
@@ -108,7 +92,7 @@ class ReportManager:
                 )
                 saved_files["control_relationships_analysis"] = control_file
             
-            # 4. 生成综合报告
+            # 3. 生成综合报告
             summary_file = dataset_dir / f"00_综合分析报告_{timestamp}.md"
             self._generate_comprehensive_report(
                 summary_file,
@@ -119,7 +103,7 @@ class ReportManager:
             )
             saved_files["comprehensive_report"] = summary_file
             
-            # 5. 保存元数据
+            # 4. 保存元数据
             metadata_file = dataset_dir / f"metadata_{timestamp}.json"
             self._save_metadata(metadata_file, dataset_id, dataset_name, analysis_results, saved_files)
             saved_files["metadata"] = metadata_file
@@ -330,23 +314,16 @@ class ReportManager:
                 # 分析结果摘要
                 f.write("## 🔍 分析结果摘要\n\n")
                 
-                # 设备时间列识别摘要
-                if analysis_results.get("device_time_identification"):
-                    f.write("### 1. 设备列和时间列识别\n")
-                    f.write("- ✅ 已完成设备相关列和时间列的自动识别\n")
-                    f.write("- 📋 识别结果以表格形式展示，包含重要程度排序\n")
-                    f.write(f"- 📄 详细结果请查看: `{saved_files.get('device_time_identification', {}).name}`\n\n")
-                
                 # 业务含义分析摘要
                 if analysis_results.get("business_meaning_analysis"):
-                    f.write("### 2. 业务含义分析\n")
+                    f.write("### 1. 业务含义分析\n")
                     f.write("- ✅ 已完成各列业务含义的深度分析\n")
                     f.write("- 🏭 专注于工业业务场景的理解和应用\n")
                     f.write(f"- 📄 详细结果请查看: `{saved_files.get('business_meaning_analysis', {}).name}`\n\n")
                 
                 # 控制原理分析摘要
                 if analysis_results.get("control_relationships_analysis"):
-                    f.write("### 3. 控制原理分析\n")
+                    f.write("### 2. 控制原理分析\n")
                     f.write("- ✅ 已完成控制关系和因果关系分析\n")
                     f.write("- 📊 包含Mermaid图表的可视化展示\n")
                     f.write("- ⚙️ 提供控制系统优化建议\n")
@@ -358,7 +335,6 @@ class ReportManager:
                 f.write("|------|--------|----------|------|\n")
                 
                 file_descriptions = {
-                    "device_time_identification": "设备列和时间列识别",
                     "business_meaning_analysis": "业务含义分析", 
                     "control_relationships_analysis": "控制原理分析",
                     "comprehensive_report": "综合分析报告",

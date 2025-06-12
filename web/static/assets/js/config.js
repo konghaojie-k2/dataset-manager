@@ -46,7 +46,7 @@ const CONFIG = {
     WORKFLOW: {
         STEPS: [
             { id: 'upload', name: '数据上传', icon: '📤', description: '文件上传与基础信息提取' },
-            { id: 'business', name: '业务分析', icon: '💡', description: '设备列识别、业务语义分析、控制逻辑推理' },
+            { id: 'business', name: '业务分析', icon: '💡', description: '业务语义分析、控制逻辑推理' },
             { id: 'quality', name: '数据质量分析', icon: '✅', description: '数据质量评估与分析' }
         ]
     },

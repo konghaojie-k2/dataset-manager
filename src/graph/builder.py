@@ -156,18 +156,16 @@ class AnalysisWorkflowBuilder:
             # 创建状态图
             workflow = StateGraph(AnalysisState)
             
-            # 添加节点 - 只包含工业分析相关的节点
+            # 添加节点 - 只包含业务分析相关的节点
             workflow.add_node("load_data_step", load_data_node)
-            workflow.add_node("identify_device_time_columns_step", identify_device_time_columns_node)
             workflow.add_node("analyze_business_meaning_step", analyze_business_meaning_node)
             workflow.add_node("analyze_control_relationships_step", analyze_control_relationships_node)
             
             # 设置工作流路径
             workflow.set_entry_point("load_data_step")
             
-            # 添加边 - 按照工业分析的正确流程
-            workflow.add_edge("load_data_step", "identify_device_time_columns_step")
-            workflow.add_edge("identify_device_time_columns_step", "analyze_business_meaning_step")
+            # 添加边 - 简化的业务分析流程
+            workflow.add_edge("load_data_step", "analyze_business_meaning_step")
             workflow.add_edge("analyze_business_meaning_step", "analyze_control_relationships_step")
             
             # 设置结束点 - 控制原理分析后直接结束

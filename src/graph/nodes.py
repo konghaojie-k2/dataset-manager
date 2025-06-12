@@ -530,7 +530,6 @@ class AnalysisNodes:
             prompt = self.analysis_prompts.get_control_relationships_analysis_prompt(
                 dataset_name=state.get('dataset_name', '未知'),
                 user_requirements=state.get('user_requirements', '无特殊要求'),
-                device_time_identification=state.get('device_time_identification', '暂未识别'),
                 business_meaning_analysis=state.get('business_meaning_analysis', '暂未分析'),
                 correlation_analysis=str(correlation_analysis),
                 columns_info=columns_info_str

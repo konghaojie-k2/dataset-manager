@@ -640,25 +640,16 @@ class DatasetService:
             
             if business_results:
                 results.update({
-                    "columns": extract_column_info(dataset),
                     "business_meaning": business_results.get("business_meaning_analysis", "暂无业务含义分析结果"),
                     "control_logic": business_results.get("control_relationships_analysis", "暂无控制逻辑分析结果"),
-                    "schema_mapping": extract_schema_mapping(dataset),
-                    "device_time_identification": business_results.get("device_time_identification"),
-                    "basic_analysis": business_results.get("basic_analysis"),
-                    "detailed_analysis": business_results.get("detailed_analysis"),
                     "insights": business_results.get("insights", []),
-                    "recommendations": business_results.get("recommendations"),
-                    "column_analyses": business_results.get("column_analyses", {}),
-                    "columns_metadata": business_results.get("columns_metadata", [])
+                    "recommendations": business_results.get("recommendations")
                 })
             else:
                 # 兼容旧数据：从dataset对象获取
                 results.update({
-                    "columns": extract_column_info(dataset),
                     "business_meaning": dataset.business_meaning_analysis or "暂无业务含义分析结果",
-                    "control_logic": dataset.control_relationships_analysis or "暂无控制逻辑分析结果",
-                    "schema_mapping": extract_schema_mapping(dataset)
+                    "control_logic": dataset.control_relationships_analysis or "暂无控制逻辑分析结果"
                 })
             
             return results

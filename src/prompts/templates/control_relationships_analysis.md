@@ -7,7 +7,6 @@ description: "用于分析工业数据中列之间控制原理和因果关系的
 variables:
   - dataset_name
   - user_requirements
-  - device_time_identification
   - business_meaning_analysis
   - correlation_analysis
   - columns_info
@@ -32,9 +31,6 @@ updated_date: "2025-01-12"
 ### 数据集基本信息
 - **数据集名称**：{dataset_name}
 - **用户需求**：{user_requirements}
-
-### 已识别的设备和时间列信息
-{device_time_identification}
 
 ### 业务含义分析结果
 {business_meaning_analysis}
@@ -212,4 +208,18 @@ timeline
 - 识别控制系统的优化潜力
 - 提供可操作的改进建议
 - 考虑安全性和经济性因素
-- 图文并茂，便于理解和实施 
+- 图文并茂，便于理解和实施
+
+## ⚠️ Mermaid语法要求（重要）
+- **必须严格按照Mermaid语法规范编写图表**
+- **图表声明必须是 `graph TD` 而不是其他变体**
+- **每个节点连接必须单独一行，不能连写**
+- **节点标识符只能使用字母和数字，避免中文**
+- **正确格式示例**：
+```mermaid
+graph TD
+    A[管理层] --> B[监督层]
+    B --> C[控制层]
+    C --> D[被控对象]
+```
+- **错误格式**：`graph TDA[...]` 或 `A --> B[...]B --> C[...]` 
