@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义基础样式 */
+@layer base {
+  * {
+    @apply box-border;
+  }
+  
+  body {
+    @apply font-sans bg-gradient-to-br from-primary-500 to-secondary-500 min-h-screen;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+}
+
+/* 自定义组件样式 */
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-300 ease-in-out;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-500 text-white hover:bg-primary-600 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-500 text-white hover:bg-gray-600 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .btn-success {
+    @apply bg-green-500 text-white hover:bg-green-600 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .btn-danger {
+    @apply bg-red-500 text-white hover:bg-red-600 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .btn-info {
+    @apply bg-blue-500 text-white hover:bg-blue-600 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .btn-warning {
+    @apply bg-yellow-500 text-white hover:bg-yellow-600 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300;
+  }
+  
+  .container-main {
+    @apply max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500;
+  }
+  
+  .tag {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800;
+  }
+  
+  .status-badge {
+    @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .status-completed {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .status-analyzing {
+    @apply bg-blue-100 text-blue-800;
+  }
+  
+  .status-not-started {
+    @apply bg-gray-100 text-gray-800;
+  }
+  
+  .quality-score {
+    @apply font-bold text-green-600;
+  }
+}
+
+/* 自定义工具类 */
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent;
+  }
+  
+  .bg-gradient-primary {
+    @apply bg-gradient-to-br from-primary-500 to-secondary-500;
+  }
+} 
