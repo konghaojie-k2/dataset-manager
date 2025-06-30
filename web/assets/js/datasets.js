@@ -64,11 +64,17 @@ const Datasets = {
      * 生成数据集卡片HTML
      */
     generateDatasetCardHtml(dataset) {
+        const isDuplicate = dataset.version_type === 'duplicate';
+        const cardClass = isDuplicate ? 'dataset-card duplicate-dataset' : 'dataset-card';
+        
         return `
-            <div class="dataset-card">
+            <div class="${cardClass}">
                 <div class="dataset-main-info">
                     <div class="dataset-name-section">
-                        <div class="dataset-name">${Utils.escapeHtml(dataset.name)}</div>
+                        <div class="dataset-name">
+                            ${Utils.escapeHtml(dataset.name)}
+                            ${isDuplicate ? '<span class="duplicate-badge" title="重复数据">🔗 重复</span>' : ''}
+                        </div>
                         <div class="dataset-upload-time">${Utils.formatDate(dataset.upload_time)}</div>
                         ${dataset.description ? `<div class="dataset-description" title="${Utils.escapeHtml(dataset.description)}">${Utils.escapeHtml(dataset.description)}</div>` : ''}
                         ${this.generateTagsHtml(dataset.tags, dataset.id)}
@@ -81,6 +87,12 @@ const Datasets = {
                         <div class="stat-item">
                             <div class="stat-value">${dataset.columns ? dataset.columns.length : '未分析'}</div>
                             <div class="stat-label">列数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value version-info" onclick="Datasets.showVersionInfo('${dataset.id}')" title="点击查看版本详情">
+                                ${this.getVersionDisplay(dataset)}
+                            </div>
+                            <div class="stat-label">版本</div>
                         </div>
                         <div class="stat-item">
                             <div class="stat-status">${this.getQualityStatus(dataset)}</div>
@@ -201,6 +213,169 @@ const Datasets = {
             return '<span class="status-analyzing">分析中</span>';
         } else {
             return '<span class="status-not-started">未开始</span>';
+        }
+    },
+
+    /**
+     * 获取版本显示信息
+     */
+    getVersionDisplay(dataset) {
+        const version = dataset.version || '1.0';
+        const versionType = dataset.version_type || 'original';
+        
+        let versionIcon = '';
+        let versionClass = '';
+        
+        switch (versionType) {
+            case 'original':
+                versionIcon = '🆕';
+                versionClass = 'version-original';
+                break;
+            case 'updated':
+                versionIcon = '🔄';
+                versionClass = 'version-updated';
+                break;
+            case 'duplicate':
+                versionIcon = '🔗';
+                versionClass = 'version-duplicate';
+                break;
+            default:
+                versionIcon = '📄';
+                versionClass = 'version-default';
+        }
+        
+        return `<span class="${versionClass}">${versionIcon} ${version}</span>`;
+    },
+
+    /**
+     * 显示版本信息弹窗
+     */
+    async showVersionInfo(datasetId) {
+        try {
+            UI.showLoading(true);
+            
+            // 获取版本历史和重复数据
+            const versionData = await API.versionControl.getVersionHistory(datasetId);
+            
+            this.openVersionInfoModal(datasetId, versionData);
+            
+        } catch (error) {
+            Utils.log.error('获取版本信息失败:', error);
+            UI.showMessage('获取版本信息失败，请重试', CONFIG.MESSAGE.TYPES.ERROR);
+        } finally {
+            UI.showLoading(false);
+        }
+    },
+
+    /**
+     * 打开版本信息弹窗
+     */
+    openVersionInfoModal(datasetId, versionData) {
+        const currentDataset = AppState.datasets.find(d => d.id === datasetId);
+        const currentDatasetName = currentDataset ? currentDataset.name : datasetId;
+        
+        const versionHistoryHtml = versionData.version_history.map(version => `
+            <div class="version-item">
+                <div class="version-header">
+                    <span class="version-number">${this.getVersionDisplay({version: version.version, version_type: version.version_type})}</span>
+                    <span class="version-date">${Utils.formatDate(version.upload_time)}</span>
+                </div>
+                <div class="version-details">
+                    <div class="version-name">${Utils.escapeHtml(version.name)}</div>
+                    ${version.version_notes ? `<div class="version-notes">${Utils.escapeHtml(version.version_notes)}</div>` : ''}
+                    <div class="version-size">${Utils.formatFileSize(version.file_size)}</div>
+                </div>
+            </div>
+        `).join('');
+        
+        const duplicatesHtml = versionData.duplicates.map(duplicate => `
+            <div class="duplicate-item">
+                <div class="duplicate-header">
+                    <span class="duplicate-name">${Utils.escapeHtml(duplicate.name)}</span>
+                    <span class="duplicate-type">${duplicate.duplicate_type === 'file' ? '完全相同' : '内容相同'}</span>
+                </div>
+                <div class="duplicate-details">
+                    <span class="duplicate-version">${this.getVersionDisplay({version: duplicate.version, version_type: duplicate.version_type})}</span>
+                    <span class="duplicate-date">${Utils.formatDate(duplicate.upload_time)}</span>
+                    <span class="duplicate-size">${Utils.formatFileSize(duplicate.file_size)}</span>
+                </div>
+            </div>
+        `).join('');
+        
+        const modalHtml = `
+            <div class="modal-overlay" id="versionInfoModal">
+                <div class="modal-content version-info-modal">
+                    <div class="modal-header">
+                        <h3>📋 版本信息 - ${Utils.escapeHtml(currentDatasetName)}</h3>
+                        <button type="button" class="modal-close" onclick="Datasets.closeVersionInfoModal()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="version-section">
+                            <h4>📚 版本历史 (${versionData.total_versions})</h4>
+                            <div class="version-list">
+                                ${versionHistoryHtml || '<div class="empty-state">暂无版本历史</div>'}
+                            </div>
+                        </div>
+                        
+                        ${versionData.total_duplicates > 0 ? `
+                        <div class="duplicate-section">
+                            <h4>🔗 重复数据 (${versionData.total_duplicates})</h4>
+                            <div class="duplicate-list">
+                                ${duplicatesHtml}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="version-actions">
+                            <button type="button" class="btn btn-secondary" onclick="Datasets.closeVersionInfoModal()">关闭</button>
+                            ${versionData.total_versions > 5 ? `
+                            <button type="button" class="btn btn-warning" onclick="Datasets.cleanupVersions('${datasetId}')">清理旧版本</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 添加到页面
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /**
+     * 关闭版本信息弹窗
+     */
+    closeVersionInfoModal() {
+        const modal = document.getElementById('versionInfoModal');
+        if (modal) {
+            modal.remove();
+        }
+    },
+
+    /**
+     * 清理旧版本
+     */
+    async cleanupVersions(datasetId) {
+        const confirmed = await UI.confirm('确定要清理旧版本吗？将保留最新的5个版本，其他版本将被删除。', '清理版本');
+        if (!confirmed) return;
+        
+        try {
+            UI.showLoading(true);
+            
+            const result = await API.versionControl.cleanupVersions(datasetId, 5);
+            
+            UI.showMessage(result.message, CONFIG.MESSAGE.TYPES.SUCCESS);
+            
+            // 关闭弹窗并刷新版本信息
+            this.closeVersionInfoModal();
+            setTimeout(() => {
+                this.showVersionInfo(datasetId);
+            }, 1000);
+            
+        } catch (error) {
+            Utils.log.error('清理版本失败:', error);
+            UI.showMessage('清理版本失败，请重试', CONFIG.MESSAGE.TYPES.ERROR);
+        } finally {
+            UI.showLoading(false);
         }
     },
 

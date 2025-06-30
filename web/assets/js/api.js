@@ -200,6 +200,37 @@ const API = {
         }
     },
 
+    // 版本控制相关API
+    versionControl: {
+        /**
+         * 获取数据集版本历史
+         * @param {string} datasetId - 数据集ID
+         * @returns {Promise} 版本历史
+         */
+        async getVersionHistory(datasetId) {
+            return API.get(`${CONFIG.API_BASE}/version-control/datasets/${datasetId}/versions`);
+        },
+
+        /**
+         * 获取重复数据集
+         * @param {string} datasetId - 数据集ID
+         * @returns {Promise} 重复数据集列表
+         */
+        async getDuplicates(datasetId) {
+            return API.get(`${CONFIG.API_BASE}/version-control/datasets/${datasetId}/duplicates`);
+        },
+
+        /**
+         * 清理旧版本
+         * @param {string} datasetId - 数据集ID
+         * @param {number} keepVersions - 保留版本数量
+         * @returns {Promise} 清理结果
+         */
+        async cleanupVersions(datasetId, keepVersions = 5) {
+            return API.delete(`${CONFIG.API_BASE}/version-control/datasets/${datasetId}/versions/cleanup?keep_versions=${keepVersions}`);
+        }
+    },
+
     // 分析相关API
     analysis: {
         /**

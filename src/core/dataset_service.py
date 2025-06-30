@@ -26,6 +26,7 @@ from ..utils import (
     get_dataset_with_validation,
     get_dataset_by_id
 )
+from ..utils.version_control import version_controller
 
 
 class DatasetService:
@@ -66,6 +67,49 @@ class DatasetService:
             # 1. 上传文件
             file_id, file_path, file_info = await self.file_service.upload_file(file)
             
+            # 2. 创建版本信息
+            logger.info(f"开始计算文件版本信息: {file_path}")
+            
+            # 检查是否存在相同数据
+            existing_datasets = self.repository.list_all()
+            version_info = version_controller.create_version_info(
+                file_path=file_path,
+                parent_dataset=None,  # 暂时不考虑父版本，后续可以根据重复检测结果设置
+                version_notes=user_input
+            )
+            
+            # 检测重复数据
+            duplicate_dataset = version_controller.detect_duplicate_data(
+                new_file_hash=version_info["file_hash"],
+                new_content_hash=version_info["content_hash"],
+                existing_datasets=existing_datasets
+            )
+            
+            if duplicate_dataset:
+                logger.warning(f"检测到重复数据，原始数据集: {duplicate_dataset.id}")
+                
+                # 根据配置的重复处理策略进行处理
+                from ..config.settings import get_settings
+                settings = get_settings()
+                
+                if settings.duplicate_storage_strategy == "reject":
+                    # 拒绝重复数据上传
+                    raise ValueError(f"检测到重复数据！已存在相同的数据集：{duplicate_dataset.name} (ID: {duplicate_dataset.id})")
+                elif settings.duplicate_storage_strategy == "reference":
+                    # 创建引用版本
+                    version_info = version_controller.create_version_info(
+                        file_path=file_path,
+                        parent_dataset=duplicate_dataset,
+                        version_notes=user_input or "重复数据检测"
+                    )
+                else:  # full
+                    # 创建完整副本
+                    version_info = version_controller.create_version_info(
+                        file_path=file_path,
+                        parent_dataset=duplicate_dataset,
+                        version_notes=user_input or "重复数据检测"
+                    )
+            
             # 2. 获取基础列信息（用于前端显示）
             basic_columns = []
             try:
@@ -96,7 +140,7 @@ class DatasetService:
                 logger.warning(f"获取基础列信息失败: {e}")
                 # 不影响上传流程，继续执行
             
-            # 3. 创建数据集元数据
+            # 3. 创建数据集元数据（包含版本信息）
             dataset = DatasetMetadata(
                 id=file_id,
                 name=file.filename,
@@ -105,13 +149,20 @@ class DatasetService:
                 file_size=file_info['file_size'],
                 upload_time=datetime.now(),
                 columns=basic_columns,  # 使用获取到的基础列信息
-                processing_status="uploaded"
+                processing_status="uploaded",
+                # 版本控制字段
+                file_hash=version_info["file_hash"],
+                content_hash=version_info["content_hash"],
+                version=version_info["version"],
+                parent_version_id=version_info["parent_version_id"],
+                version_type=version_info["version_type"],
+                version_notes=version_info["version_notes"]
             )
             
             # 4. 保存初始元数据
             self.repository.save(dataset)
             
-            logger.info(f"数据集上传成功: {dataset.id}")
+            logger.info(f"数据集上传成功: {dataset.id} (版本: {dataset.version})")
             
             # 移除自动触发元数据提取，改为手动触发
             # await self.extract_metadata(dataset.id, user_input)
@@ -121,6 +172,76 @@ class DatasetService:
         except Exception as e:
             logger.error(f"数据集上传失败: {e}")
             raise
+    
+    def get_version_history(self, dataset_id: str) -> List[Dict[str, Any]]:
+        """获取数据集版本历史
+        
+        Args:
+            dataset_id: 数据集ID
+            
+        Returns:
+            List[Dict[str, Any]]: 版本历史列表
+        """
+        try:
+            return version_controller.get_version_history(dataset_id, self.repository)
+        except Exception as e:
+            logger.error(f"获取版本历史失败: {e}")
+            return []
+    
+    def cleanup_old_versions(self, dataset_id: str, keep_versions: int = 5) -> int:
+        """清理旧版本
+        
+        Args:
+            dataset_id: 数据集ID
+            keep_versions: 保留版本数量
+            
+        Returns:
+            int: 清理的版本数量
+        """
+        try:
+            return version_controller.cleanup_old_versions(dataset_id, self.repository, keep_versions)
+        except Exception as e:
+            logger.error(f"清理旧版本失败: {e}")
+            return 0
+    
+    def get_duplicate_datasets(self, dataset_id: str) -> List[Dict[str, Any]]:
+        """获取重复数据集
+        
+        Args:
+            dataset_id: 数据集ID
+            
+        Returns:
+            List[Dict[str, Any]]: 重复数据集列表
+        """
+        try:
+            dataset = self.repository.get_by_id(dataset_id)
+            if not dataset:
+                return []
+            
+            all_datasets = self.repository.list_all()
+            duplicates = []
+            
+            for other_dataset in all_datasets:
+                if other_dataset.id != dataset_id:
+                    # 检查文件哈希或内容哈希是否相同
+                    if (other_dataset.file_hash == dataset.file_hash or 
+                        other_dataset.content_hash == dataset.content_hash):
+                        duplicates.append({
+                            "id": other_dataset.id,
+                            "name": other_dataset.name,
+                            "version": other_dataset.version,
+                            "version_type": other_dataset.version_type,
+                            "upload_time": other_dataset.upload_time,
+                            "file_size": other_dataset.file_size,
+                            "duplicate_type": "file" if other_dataset.file_hash == dataset.file_hash else "content"
+                        })
+            
+            logger.info(f"找到 {len(duplicates)} 个重复数据集")
+            return duplicates
+            
+        except Exception as e:
+            logger.error(f"获取重复数据集失败: {e}")
+            return []
     
     async def extract_metadata(self, dataset_id: str, user_input: Optional[str] = None) -> Dict[str, Any]:
         """提取数据集元数据

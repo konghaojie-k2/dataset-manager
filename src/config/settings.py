@@ -45,6 +45,13 @@ class Settings(BaseModel):
     max_file_size: int = Field(default=100 * 1024 * 1024, description="最大文件大小(字节)")  # 100MB
     allowed_extensions: list = Field(default=[".csv", ".zip"], description="允许的文件扩展名")
     
+    # 版本控制配置
+    version_control_enabled: bool = Field(default=True, description="是否启用版本控制")
+    duplicate_detection_enabled: bool = Field(default=True, description="是否启用重复检测")
+    duplicate_storage_strategy: str = Field(default="reject", description="重复数据存储策略: full, reference, reject")
+    auto_cleanup_enabled: bool = Field(default=True, description="是否启用自动清理")
+    default_keep_versions: int = Field(default=5, description="默认保留版本数量")
+    
     # 数据处理配置
     sample_rows: int = Field(default=1000, description="数据采样行数")
     preview_rows: int = Field(default=10, description="预览行数")

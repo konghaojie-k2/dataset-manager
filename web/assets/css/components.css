@@ -515,4 +515,176 @@
     display: inline-block;
     min-width: 60px;
     text-align: center;
+}
+
+/* 版本信息样式 */
+.version-info {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.version-info:hover {
+    transform: scale(1.05);
+    color: #667eea !important;
+}
+
+.version-original {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.version-updated {
+    color: #007bff;
+    font-weight: bold;
+}
+
+.version-duplicate {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.version-default {
+    color: #6c757d;
+    font-weight: bold;
+}
+
+/* 版本信息弹窗样式 */
+.version-info-modal {
+    max-width: 800px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.version-section, .duplicate-section {
+    margin-bottom: 25px;
+}
+
+.version-section h4, .duplicate-section h4 {
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e9ecef;
+    font-size: 1.1em;
+}
+
+.version-list, .duplicate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.version-item, .duplicate-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s ease;
+}
+
+.version-item:hover, .duplicate-item:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.version-header, .duplicate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.version-number, .duplicate-version {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.version-date, .duplicate-date {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.version-details, .duplicate-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+}
+
+.version-name, .duplicate-name {
+    font-weight: 500;
+    color: #333;
+    flex: 1;
+    min-width: 200px;
+}
+
+.version-notes {
+    color: #666;
+    font-style: italic;
+    font-size: 0.9em;
+    flex: 1;
+    min-width: 150px;
+}
+
+.version-size, .duplicate-size {
+    color: #667eea;
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+.duplicate-type {
+    background: #fff3cd;
+    color: #856404;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+.version-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.empty-state {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 30px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #dee2e6;
+}
+
+/* 重复数据集样式 */
+.duplicate-dataset {
+    border-left: 4px solid #ffc107 !important;
+    background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%) !important;
+}
+
+.duplicate-dataset:hover {
+    background: linear-gradient(135deg, #fff3cd 0%, #f8f9fa 100%) !important;
+    box-shadow: 0 8px 25px rgba(255, 193, 7, 0.15) !important;
+}
+
+.duplicate-badge {
+    display: inline-block;
+    background: #ffc107;
+    color: #856404;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: 500;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.duplicate-badge:hover {
+    background: #e0a800;
+    transform: scale(1.05);
 } 

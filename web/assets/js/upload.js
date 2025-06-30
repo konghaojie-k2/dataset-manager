@@ -61,14 +61,60 @@ const Upload = {
                 return;
             }
 
-
-
             // 开始上传
             await this.uploadFile(file);
 
         } catch (error) {
             Utils.log.error('文件上传处理失败:', error);
-            UI.showMessage('文件上传失败', CONFIG.MESSAGE.TYPES.ERROR);
+            
+            // 检查是否是重复数据错误
+            if (error.message && error.message.includes('检测到重复数据')) {
+                await this.handleDuplicateDataError(error.message, file);
+            } else {
+                UI.showMessage('文件上传失败: ' + error.message, CONFIG.MESSAGE.TYPES.ERROR);
+            }
+        }
+    },
+
+    /**
+     * 处理重复数据错误
+     */
+    async handleDuplicateDataError(errorMessage, file) {
+        // 从错误消息中提取原数据集信息
+        const match = errorMessage.match(/已存在相同的数据集：(.+?) \(ID: (.+?)\)/);
+        const existingDatasetName = match ? match[1] : '未知数据集';
+        const existingDatasetId = match ? match[2] : '';
+
+        const confirmed = await UI.confirm(
+            `检测到重复数据！\n\n` +
+            `已存在相同的数据集：${existingDatasetName}\n\n` +
+            `您希望如何处理？\n` +
+            `• 点击"确定"：删除原数据集并上传新文件\n` +
+            `• 点击"取消"：取消上传，保留原数据集`,
+            '重复数据处理'
+        );
+
+        if (confirmed && existingDatasetId) {
+            try {
+                UI.showLoading(true);
+                UI.showMessage('正在删除原数据集...', CONFIG.MESSAGE.TYPES.INFO);
+
+                // 删除原数据集
+                await API.datasets.delete(existingDatasetId);
+                
+                UI.showMessage('原数据集已删除，重新上传中...', CONFIG.MESSAGE.TYPES.INFO);
+
+                // 重新上传文件
+                await this.uploadFile(file);
+
+            } catch (deleteError) {
+                Utils.log.error('删除原数据集失败:', deleteError);
+                UI.showMessage('删除原数据集失败，请手动删除后重试', CONFIG.MESSAGE.TYPES.ERROR);
+            } finally {
+                UI.showLoading(false);
+            }
+        } else {
+            UI.showMessage('上传已取消，保留原数据集', CONFIG.MESSAGE.TYPES.INFO);
         }
     },
 

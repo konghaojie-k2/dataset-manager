@@ -39,6 +39,14 @@ class DatasetMetadata(BaseModel):
     file_size: int = Field(description="文件大小(字节)")
     upload_time: datetime = Field(description="上传时间")
     
+    # 版本控制字段
+    file_hash: Optional[str] = Field(None, description="文件哈希值(SHA256)")
+    content_hash: Optional[str] = Field(None, description="数据内容哈希值")
+    version: str = Field(default="1.0", description="版本号")
+    parent_version_id: Optional[str] = Field(None, description="父版本ID")
+    version_type: str = Field(default="original", description="版本类型: original, updated, duplicate")
+    version_notes: Optional[str] = Field(None, description="版本说明")
+    
     # 数据基本信息
     time_range_start: Optional[datetime] = Field(None, description="时间范围开始")
     time_range_end: Optional[datetime] = Field(None, description="时间范围结束")

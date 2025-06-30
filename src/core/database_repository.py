@@ -47,6 +47,12 @@ class DatabaseRepository:
                         file_path TEXT NOT NULL,
                         file_size INTEGER NOT NULL,
                         upload_time TIMESTAMP NOT NULL,
+                        file_hash TEXT,  -- 文件哈希值(SHA256)
+                        content_hash TEXT,  -- 数据内容哈希值
+                        version TEXT DEFAULT '1.0',  -- 版本号
+                        parent_version_id TEXT,  -- 父版本ID
+                        version_type TEXT DEFAULT 'original',  -- 版本类型
+                        version_notes TEXT,  -- 版本说明
                         time_range_start TIMESTAMP,
                         time_range_end TIMESTAMP,
                         sampling_rate TEXT,
@@ -134,14 +140,15 @@ class DatabaseRepository:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
-                # 保存数据集基本信息
+                # 保存数据集基本信息（包含版本控制字段）
                 cursor.execute("""
                     INSERT OR REPLACE INTO datasets (
                         id, name, description, file_path, file_size, upload_time,
+                        file_hash, content_hash, version, parent_version_id, version_type, version_notes,
                         time_range_start, time_range_end, sampling_rate,
                         tags, industry, analysis_domains, applicable_algorithms,
                         processing_status, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     dataset.id,
                     dataset.name,
@@ -149,6 +156,12 @@ class DatabaseRepository:
                     dataset.file_path,
                     dataset.file_size,
                     dataset.upload_time,
+                    dataset.file_hash,
+                    dataset.content_hash,
+                    dataset.version,
+                    dataset.parent_version_id,
+                    dataset.version_type,
+                    dataset.version_notes,
                     dataset.time_range_start,
                     dataset.time_range_end,
                     dataset.sampling_rate,
@@ -265,7 +278,7 @@ class DatabaseRepository:
                         recommendations=json.loads(quality_row['recommendations']) if quality_row['recommendations'] else []
                     )
                 
-                # 构建数据集对象
+                # 构建数据集对象（包含版本控制字段）
                 dataset = DatasetMetadata(
                     id=dataset_row['id'],
                     name=dataset_row['name'],
@@ -273,6 +286,14 @@ class DatabaseRepository:
                     file_path=dataset_row['file_path'],
                     file_size=dataset_row['file_size'],
                     upload_time=datetime.fromisoformat(dataset_row['upload_time']),
+                    # 版本控制字段
+                    file_hash=dataset_row['file_hash'],
+                    content_hash=dataset_row['content_hash'],
+                    version=dataset_row['version'] or "1.0",
+                    parent_version_id=dataset_row['parent_version_id'],
+                    version_type=dataset_row['version_type'] or "original",
+                    version_notes=dataset_row['version_notes'],
+                    # 其他字段
                     time_range_start=datetime.fromisoformat(dataset_row['time_range_start']) if dataset_row['time_range_start'] else None,
                     time_range_end=datetime.fromisoformat(dataset_row['time_range_end']) if dataset_row['time_range_end'] else None,
                     sampling_rate=dataset_row['sampling_rate'],
@@ -374,6 +395,14 @@ class DatabaseRepository:
                         file_path=row['file_path'],
                         file_size=row['file_size'],
                         upload_time=datetime.fromisoformat(row['upload_time']),
+                        # 版本控制字段
+                        file_hash=row['file_hash'],
+                        content_hash=row['content_hash'],
+                        version=row['version'] or "1.0",
+                        parent_version_id=row['parent_version_id'],
+                        version_type=row['version_type'] or "original",
+                        version_notes=row['version_notes'],
+                        # 其他字段
                         time_range_start=datetime.fromisoformat(row['time_range_start']) if row['time_range_start'] else None,
                         time_range_end=datetime.fromisoformat(row['time_range_end']) if row['time_range_end'] else None,
                         sampling_rate=row['sampling_rate'],

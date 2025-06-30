@@ -21,6 +21,7 @@ from .routes import router
 from .mcp_routes import mcp_router
 from .api.v1.reports import router as reports_router
 from .api.v1.tags import router as tags_router
+from .api.v1.version_control import router as version_control_router
 from .dependencies import set_dataset_service, set_tag_service
 from .middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(mcp_router)
     app.include_router(reports_router)
     app.include_router(tags_router)
+    app.include_router(version_control_router)
 
     # 静态文件服务（如果有前端文件）
     web_dir = Path("web")
