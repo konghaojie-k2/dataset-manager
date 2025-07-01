@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react'
 import { DatasetMetadata, DatasetStatus } from '@/types/dataset'
 import { formatFileSize, formatDate } from '@/lib/api'
 import { api } from '@/lib/api'
+import TagEditor from './TagEditor'
 
 interface DatasetCardProps {
   dataset: DatasetMetadata
   onDelete?: (id: string) => void
   onStartBusinessAnalysis?: (id: string) => void
   onStartQualityAnalysis?: (id: string) => void
+  onTagsUpdate?: (id: string, tags: string[]) => void
 }
 
 const DatasetCard: React.FC<DatasetCardProps> = ({
@@ -17,11 +19,13 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
   onDelete,
   onStartBusinessAnalysis,
   onStartQualityAnalysis,
+  onTagsUpdate,
 }) => {
   const [showPreview, setShowPreview] = useState(false)
   const [previewData, setPreviewData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [showTagEditor, setShowTagEditor] = useState(false)
 
   useEffect(() => {
     // 确保只在客户端渲染
@@ -115,6 +119,11 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
     window.open(reportUrl, '_blank')
   }
 
+  // 处理标签更新
+  const handleTagsUpdate = (newTags: string[]) => {
+    onTagsUpdate?.(dataset.id, newTags)
+  }
+
   const isDuplicate = dataset.version_type === 'duplicate'
 
   return (
@@ -138,15 +147,26 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
             )}
             
             {/* 标签 */}
-            {dataset.tags && dataset.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-3">
-                {dataset.tags.map((tag, index) => (
-                  <span key={index} className="tag">
-                    {tag}
-                  </span>
-                ))}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-wrap gap-1 flex-1">
+                {dataset.tags && dataset.tags.length > 0 ? (
+                  dataset.tags.map((tag, index) => (
+                    <span key={index} className="tag">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">暂无标签</span>
+                )}
               </div>
-            )}
+              <button
+                onClick={() => setShowTagEditor(true)}
+                className="ml-2 px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                title="编辑标签"
+              >
+                🏷️ 编辑
+              </button>
+            </div>
           </div>
         </div>
 
@@ -335,6 +355,16 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* 标签编辑器 */}
+      <TagEditor
+        datasetId={dataset.id}
+        datasetName={dataset.name}
+        currentTags={dataset.tags || []}
+        isOpen={showTagEditor}
+        onClose={() => setShowTagEditor(false)}
+        onSave={handleTagsUpdate}
+      />
     </>
   )
 }

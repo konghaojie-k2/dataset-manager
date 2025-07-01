@@ -110,8 +110,40 @@
 .dataset-tags {
   margin: 8px 0;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tags-container {
+  display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  flex: 1;
+}
+
+.no-tags {
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.tag-edit-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #6b7280;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tag-edit-btn:hover {
+  background-color: #f3f4f6;
+  color: #3b82f6;
+  transform: scale(1.1);
 }
 
 .tag {

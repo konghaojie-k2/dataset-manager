@@ -81,6 +81,16 @@ const DatasetList: React.FC = () => {
     }
   }
 
+  // 处理标签更新
+  const handleTagsUpdate = async (id: string, tags: string[]) => {
+    try {
+      // 刷新数据集列表以获取最新的标签信息
+      await refreshDatasets()
+    } catch (error) {
+      console.error('Refresh datasets after tag update failed:', error)
+    }
+  }
+
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -166,6 +176,7 @@ const DatasetList: React.FC = () => {
                   onDelete={handleDelete}
                   onStartBusinessAnalysis={handleStartBusinessAnalysis}
                   onStartQualityAnalysis={handleStartQualityAnalysis}
+                  onTagsUpdate={handleTagsUpdate}
                 />
               ))}
             </div>

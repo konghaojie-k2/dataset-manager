@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react'
 import { DatasetMetadata, DatasetStatus } from '@/types/dataset'
 import { formatFileSize, formatDate } from '@/lib/api'
 import { api } from '@/lib/api'
+import TagEditor from './TagEditor'
 
 interface DatasetCardProps {
   dataset: DatasetMetadata
   onDelete?: (id: string) => void
   onStartBusinessAnalysis?: (id: string) => void
   onStartQualityAnalysis?: (id: string) => void
+  onTagsUpdate?: (id: string, tags: string[]) => void
 }
 
 // 获取质量状态显示
@@ -52,13 +54,20 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
   onDelete,
   onStartBusinessAnalysis,
   onStartQualityAnalysis,
+  onTagsUpdate,
 }) => {
   const [loading, setLoading] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [showTagEditor, setShowTagEditor] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // 处理标签更新
+  const handleTagsUpdate = (newTags: string[]) => {
+    onTagsUpdate?.(dataset.id, newTags)
+  }
 
   // 处理数据预览
   const handlePreview = async () => {
@@ -299,11 +308,22 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
           )}
           {/* 标签区域 */}
           <div className="dataset-tags">
-            {dataset.tags && dataset.tags.length > 0 && 
-              dataset.tags.map((tag, index) => (
-                <span key={index} className="tag">{tag}</span>
-              ))
-            }
+            <div className="tags-container">
+              {dataset.tags && dataset.tags.length > 0 ? (
+                dataset.tags.map((tag, index) => (
+                  <span key={index} className="tag">{tag}</span>
+                ))
+              ) : (
+                <span className="no-tags">暂无标签</span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowTagEditor(true)}
+              className="tag-edit-btn"
+              title="编辑标签"
+            >
+              🏷️
+            </button>
           </div>
         </div>
 
@@ -344,6 +364,16 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
           {generateActionButtons().slice(-2)}
         </div>
       </div>
+
+      {/* 标签编辑器 */}
+      <TagEditor
+        datasetId={dataset.id}
+        datasetName={dataset.name}
+        currentTags={dataset.tags || []}
+        isOpen={showTagEditor}
+        onClose={() => setShowTagEditor(false)}
+        onSave={handleTagsUpdate}
+      />
     </div>
   )
 }

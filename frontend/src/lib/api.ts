@@ -220,13 +220,17 @@ class ApiClient {
     },
 
     // 获取数据集标签
-    getDatasetTags: (datasetId: string): Promise<string[]> => {
-      return this.get<string[]>(`/tags/dataset/${datasetId}`)
+    getDatasetTags: async (datasetId: string): Promise<string[]> => {
+      const response = await this.get<{dataset_id: string, tags: string[]}>(`/tags/datasets/${datasetId}`)
+      return response.tags || []
     },
 
     // 更新数据集标签
     updateDatasetTags: (datasetId: string, tags: string[]): Promise<ApiResponse> => {
-      return this.put<ApiResponse>(`/tags/dataset/${datasetId}`, { tags })
+      return this.put<ApiResponse>(`/tags/datasets/${datasetId}`, {
+        dataset_id: datasetId,
+        tag_names: tags
+      })
     },
   }
 

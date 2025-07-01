@@ -468,7 +468,31 @@ class DatasetService:
         except Exception as e:
             logger.error(f"获取数据预览失败: {e}")
             return None
-    
+
+    def get_dataset_file_path(self, dataset_id: str) -> Optional[Path]:
+        """获取数据集文件路径
+
+        Args:
+            dataset_id: 数据集ID
+
+        Returns:
+            Optional[Path]: 文件路径
+        """
+        try:
+            # 使用复用的数据集获取方法
+            dataset = get_dataset_by_id(self.repository, dataset_id, "文件下载")
+
+            file_path = Path(dataset.file_path)
+            if file_path.exists():
+                return file_path
+            else:
+                logger.warning(f"数据集文件不存在: {file_path}")
+                return None
+
+        except Exception as e:
+            logger.error(f"获取数据集文件路径失败: {e}")
+            return None
+
     async def start_business_analysis(self, dataset_id: str) -> Dict[str, Any]:
         """启动业务分析
         

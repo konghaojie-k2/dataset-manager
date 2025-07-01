@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from loguru import logger
 
 from ..schemas.dataset import (
@@ -109,12 +109,12 @@ async def get_dataset_preview(
     service: DatasetService = Depends(get_dataset_service)
 ):
     """获取数据集预览
-    
+
     Args:
         dataset_id: 数据集ID
         rows: 预览行数
         service: 数据集服务
-        
+
     Returns:
         dict: 数据预览
     """
@@ -122,13 +122,67 @@ async def get_dataset_preview(
         preview = service.get_dataset_preview(dataset_id, rows)
         if not preview:
             raise HTTPException(status_code=404, detail="数据集不存在或无法预览")
-        
+
         return preview
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"获取数据预览失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/datasets/{dataset_id}/download")
+async def download_dataset(
+    dataset_id: str,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """下载数据集文件
+
+    Args:
+        dataset_id: 数据集ID
+        service: 数据集服务
+
+    Returns:
+        FileResponse: 文件下载响应
+    """
+    try:
+        logger.info(f"开始下载数据集: {dataset_id}")
+
+        # 获取数据集信息
+        dataset = service.get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="数据集不存在")
+
+        # 获取文件路径
+        file_path = service.get_dataset_file_path(dataset_id)
+        if not file_path or not file_path.exists():
+            raise HTTPException(status_code=404, detail="数据集文件不存在")
+
+        # 确定文件名
+        filename = dataset.name
+        if not filename.endswith(file_path.suffix):
+            filename += file_path.suffix
+
+        # 确定媒体类型
+        media_type = "application/octet-stream"
+        if file_path.suffix.lower() == ".csv":
+            media_type = "text/csv"
+        elif file_path.suffix.lower() == ".zip":
+            media_type = "application/zip"
+
+        logger.info(f"下载数据集文件: {filename}")
+
+        return FileResponse(
+            path=str(file_path),
+            filename=filename,
+            media_type=media_type
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"下载数据集失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
