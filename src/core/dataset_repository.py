@@ -339,7 +339,10 @@ class DatasetRepository:
                 dataset.insights = analysis_results.get("insights", [])
                 dataset.recommendations = analysis_results.get("recommendations")
                 dataset.quality_analysis_results = analysis_results.get("quality_analysis_results")
-                
+
+                # 重新构建业务分析结果组合对象
+                dataset._build_business_analysis_results()
+
                 logger.debug(f"分析结果已从JSON加载: {json_file}")
                 
         except Exception as e:

@@ -72,9 +72,43 @@ class DatasetMetadata(BaseModel):
     detailed_analysis: Optional[str] = Field(None, description="详细分析结果")
     insights: List[str] = Field(default_factory=list, description="数据洞察")
     recommendations: Optional[str] = Field(None, description="分析建议")
-    
+
     # 数据质量分析结果
     quality_analysis_results: Optional[Dict[str, Any]] = Field(None, description="数据质量分析结果")
+
+    # 业务分析结果（组合字段）
+    business_analysis_results: Optional[Dict[str, Any]] = Field(None, description="业务分析结果组合")
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # 自动构建 business_analysis_results
+        self._build_business_analysis_results()
+
+    def _build_business_analysis_results(self):
+        """构建业务分析结果组合对象"""
+        if any([
+            self.device_time_identification,
+            self.business_meaning_analysis,
+            self.control_relationships_analysis,
+            self.basic_analysis,
+            self.detailed_analysis,
+            self.insights,
+            self.recommendations
+        ]):
+            self.business_analysis_results = {
+                "device_time_identification": self.device_time_identification,
+                "business_meaning_analysis": self.business_meaning_analysis,
+                "control_relationships_analysis": self.control_relationships_analysis,
+                "basic_analysis": self.basic_analysis,
+                "detailed_analysis": self.detailed_analysis,
+                "insights": self.insights if self.insights else [],
+                "recommendations": self.recommendations
+            }
+            # 过滤掉None值
+            self.business_analysis_results = {
+                k: v for k, v in self.business_analysis_results.items()
+                if v is not None and v != []
+            }
     
     # 状态
     processing_status: str = Field(default="uploaded", description="处理状态")

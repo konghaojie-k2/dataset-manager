@@ -33,7 +33,7 @@ export const useDatasets = (): UseDatasets => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, []) // 移除依赖，避免无限循环
 
   // 刷新数据集列表
   const refreshDatasets = useCallback(async () => {
@@ -90,7 +90,22 @@ export const useDatasets = (): UseDatasets => {
   // 初始化数据
   useEffect(() => {
     fetchDatasets()
-  }, [fetchDatasets])
+  }, []) // 移除fetchDatasets依赖，只在组件挂载时执行一次
+
+  // 添加页面可见性变化监听，处理重新加载情况
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // 页面重新可见时，重置错误状态
+        setError(null)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
 
   return {
     datasets,

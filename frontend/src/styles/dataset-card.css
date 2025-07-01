@@ -1,0 +1,349 @@
+/* 数据集列表容器 */
+.datasets-container {
+  margin-top: 20px;
+}
+
+/* 列表头部 */
+.datasets-header {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: bold;
+  color: #495057;
+}
+
+.header-main-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 30px;
+}
+
+.header-name-section {
+  min-width: 180px;
+  flex: 0 0 180px;
+  font-size: 0.9em;
+}
+
+.header-stats {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex: 1;
+}
+
+.header-stat-item {
+  text-align: center;
+  min-width: 70px;
+  font-size: 0.9em;
+  flex: 0 0 70px;
+}
+
+.header-actions {
+  min-width: 450px;
+  flex: 0 0 450px;
+  text-align: center;
+  font-size: 0.9em;
+}
+
+/* 数据集卡片样式 */
+.dataset-card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80px;
+}
+
+.dataset-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  border-color: #667eea;
+}
+
+.dataset-main-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 30px;
+}
+
+.dataset-name-section {
+  min-width: 180px;
+  flex: 0 0 180px;
+}
+
+.dataset-name {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.dataset-upload-time {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.dataset-description {
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: #666;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-tags {
+  margin: 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tag {
+  display: inline-block;
+  background: #667eea;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7em;
+  margin: 0;
+}
+
+.duplicate-badge {
+  display: inline-block;
+  background: #ffc107;
+  color: #212529;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7em;
+  margin-left: 8px;
+}
+
+.dataset-stats {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex: 1;
+}
+
+.stat-item {
+  text-align: center;
+  min-width: 70px;
+  flex: 0 0 70px;
+}
+
+.stat-value {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: #667eea;
+  display: block;
+}
+
+.stat-label {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 2px;
+}
+
+.stat-status {
+  font-size: 0.9em;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 12px;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 状态样式 */
+.status-completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-analyzing {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-not-started {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.quality-score {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: #28a745;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: #d4edda;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 操作按钮区域 */
+.dataset-actions {
+  display: flex;
+  gap: 15px;
+  flex-shrink: 0;
+  align-items: center;
+  min-width: 450px;
+  flex: 0 0 450px;
+}
+
+.action-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.function-group {
+  flex: 1;
+}
+
+.manage-group {
+  padding-left: 3px;
+}
+
+.action-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #1e7e34;
+}
+
+.btn-info {
+  background: #17a2b8;
+  color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+  background: #117a8b;
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #e0a800;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #545b62;
+}
+
+/* 重复数据集样式 */
+.duplicate-dataset {
+  border-left: 4px solid #ffc107;
+  background: #fffbf0;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .dataset-actions {
+    min-width: 400px;
+    flex: 0 0 400px;
+  }
+  
+  .header-actions {
+    min-width: 400px;
+    flex: 0 0 400px;
+  }
+}
+
+@media (max-width: 992px) {
+  .dataset-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  
+  .dataset-main-info {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .dataset-name-section {
+    min-width: auto;
+    flex: none;
+  }
+  
+  .dataset-stats {
+    justify-content: space-around;
+  }
+  
+  .dataset-actions {
+    min-width: auto;
+    flex: none;
+    justify-content: center;
+  }
+  
+  .datasets-header {
+    display: none;
+  }
+}

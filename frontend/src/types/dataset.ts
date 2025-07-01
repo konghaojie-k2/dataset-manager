@@ -52,19 +52,33 @@ export interface QualityAnalysisResults {
 
 // 业务分析结果
 export interface BusinessAnalysisResults {
-  device_id_column?: string
-  time_column?: string
-  business_meaning: string
-  control_relationships: string[]
-  insights: string[]
+  device_time_identification?: string
+  business_meaning_analysis?: string
+  control_relationships_analysis?: string
+  basic_analysis?: string
+  detailed_analysis?: string
+  insights?: string[]
+  recommendations?: string
+  columns_metadata?: Array<{
+    name: string
+    dtype: string
+    business_meaning: string
+    is_device_id: boolean
+    is_timestamp: boolean
+    null_count: number
+    unique_count: number
+    sample_values: any[]
+  }>
 }
 
 // 数据预览接口
 export interface DatasetPreview {
   columns: string[]
-  data: any[][]
-  total_rows: number
-  preview_rows: number
+  data: any[]
+  shape?: [number, number]
+  dtypes?: { [key: string]: string }
+  total_rows?: number
+  preview_rows?: number
 }
 
 // API响应接口

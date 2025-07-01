@@ -8,7 +8,7 @@ import {
   TagUpdateRequest,
 } from '@/types/dataset'
 
-// API基础配置
+// API基础配置 - 使用相对路径通过Next.js代理
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
 
 // HTTP客户端类
@@ -25,27 +25,48 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      // 添加超时和重试机制
+      signal: AbortSignal.timeout(30000), // 30秒超时
       ...options,
     }
 
     try {
       const response = await fetch(url, config)
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
+        const errorMessage = errorData.detail || `HTTP error! status: ${response.status}`
+
+        // 根据状态码提供更友好的错误信息
+        if (response.status === 500) {
+          throw new Error('服务器内部错误，请稍后重试')
+        } else if (response.status === 404) {
+          throw new Error('请求的资源不存在')
+        } else if (response.status >= 400 && response.status < 500) {
+          throw new Error(errorMessage)
+        } else {
+          throw new Error('网络错误，请检查连接')
+        }
       }
 
       return await response.json()
     } catch (error) {
-      console.error('API request failed:', error)
-      throw error
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('请求超时，请稍后重试')
+        }
+        console.error('API request failed:', error.message)
+        throw error
+      } else {
+        console.error('API request failed:', error)
+        throw new Error('未知错误')
+      }
     }
   }
 
@@ -106,6 +127,11 @@ class ApiClient {
 
     // 获取数据集详情
     get: (id: string): Promise<DatasetMetadata> => {
+      return this.get<DatasetMetadata>(`/datasets/${id}`)
+    },
+
+    // 获取数据集详情（别名）
+    getById: (id: string): Promise<DatasetMetadata> => {
       return this.get<DatasetMetadata>(`/datasets/${id}`)
     },
 
@@ -228,7 +254,15 @@ export const formatFileSize = (bytes: number): string => {
 
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString)
-  return date.toLocaleString('zh-CN')
+  // 使用固定格式避免服务端和客户端不一致
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
 export const escapeHtml = (text: string): string => {

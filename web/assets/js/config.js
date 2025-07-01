@@ -5,8 +5,8 @@
 
 // API配置
 const CONFIG = {
-    // API基础URL
-    API_BASE: '/api/v1',
+    // API基础URL - 指向后端服务器
+    API_BASE: 'http://localhost:8000/api/v1',
     
     // 文件上传配置
     UPLOAD: {

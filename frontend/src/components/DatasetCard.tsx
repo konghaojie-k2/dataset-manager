@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { DatasetMetadata, DatasetStatus } from '@/types/dataset'
 import { formatFileSize, formatDate } from '@/lib/api'
 import { api } from '@/lib/api'
@@ -21,6 +21,12 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
   const [showPreview, setShowPreview] = useState(false)
   const [previewData, setPreviewData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    // 确保只在客户端渲染
+    setIsClient(true)
+  }, [])
 
   // 获取状态显示
   const getStatusBadge = (status: DatasetStatus) => {
@@ -79,6 +85,9 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
 
   // 处理下载
   const handleDownload = async () => {
+    // 确保只在客户端执行
+    if (typeof window === 'undefined') return
+
     try {
       const blob = await api.datasets.download(dataset.id)
       const url = window.URL.createObjectURL(blob)
@@ -96,6 +105,16 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
     }
   }
 
+  // 处理查看报告
+  const handleViewReport = () => {
+    // 确保只在客户端执行
+    if (typeof window === 'undefined') return
+
+    // 打开新窗口显示报告
+    const reportUrl = `/reports/${dataset.id}`
+    window.open(reportUrl, '_blank')
+  }
+
   const isDuplicate = dataset.version_type === 'duplicate'
 
   return (
@@ -111,7 +130,9 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500 mb-2">{formatDate(dataset.upload_time)}</p>
+            <p className="text-sm text-gray-500 mb-2" suppressHydrationWarning>
+              {isClient ? formatDate(dataset.upload_time) : '加载中...'}
+            </p>
             {dataset.description && (
               <p className="text-sm text-gray-600 mb-2">{dataset.description}</p>
             )}
@@ -151,6 +172,64 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
           </div>
         </div>
 
+        {/* 分析结果展示 */}
+        {(dataset.business_analysis_results || dataset.quality_analysis_results) && (
+          <div className="mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 数据质量分析结果 */}
+              {dataset.quality_analysis_results && (
+                <div className="border border-red-200 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-red-600 mb-3 flex items-center">
+                    <span className="mr-2">📊</span>
+                    数据质量
+                  </h4>
+                  <div className="text-center mb-3">
+                    <div className="text-2xl font-bold text-green-600">
+                      {dataset.quality_analysis_results.overall_score}分
+                    </div>
+                    <div className="text-sm text-gray-500">质量评估</div>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>完整性:</span>
+                      <span className="font-medium">{dataset.quality_analysis_results.completeness}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>准确性:</span>
+                      <span className="font-medium">{dataset.quality_analysis_results.accuracy}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>一致性:</span>
+                      <span className="font-medium">{dataset.quality_analysis_results.consistency}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 业务理解分析结果 */}
+              {dataset.business_analysis_results && (
+                <div className="border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-blue-600 mb-3 flex items-center">
+                    <span className="mr-2">🎯</span>
+                    业务理解
+                  </h4>
+                  <div className="text-center mb-3">
+                    <div className="text-sm font-medium text-blue-600">
+                      {dataset.business_analysis_results.insights?.length || 0} 个洞察
+                    </div>
+                    <div className="text-xs text-gray-500">业务分析</div>
+                  </div>
+                  {dataset.business_analysis_results.business_meaning && (
+                    <div className="text-sm text-gray-700 mb-2">
+                      <strong>业务含义:</strong> {dataset.business_analysis_results.business_meaning.slice(0, 100)}...
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 操作按钮 */}
         <div className="flex flex-wrap gap-2 justify-between">
           <div className="flex flex-wrap gap-2">
@@ -161,7 +240,7 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
             >
               {loading ? '加载中...' : '数据预览'}
             </button>
-            
+
             {dataset.processing_status === DatasetStatus.UPLOADED && (
               <button
                 onClick={() => onStartBusinessAnalysis?.(dataset.id)}
@@ -170,13 +249,23 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
                 启动业务分析
               </button>
             )}
-            
+
             {dataset.processing_status === DatasetStatus.BUSINESS_COMPLETED && (
               <button
                 onClick={() => onStartQualityAnalysis?.(dataset.id)}
                 className="btn btn-success text-sm px-3 py-1"
               >
                 启动质量分析
+              </button>
+            )}
+
+            {/* 查看报告按钮 */}
+            {(dataset.business_analysis_results || dataset.quality_analysis_results) && (
+              <button
+                onClick={() => handleViewReport()}
+                className="btn btn-primary text-sm px-3 py-1"
+              >
+                查看报告
               </button>
             )}
           </div>
@@ -225,11 +314,11 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {previewData.data.map((row: any[], rowIndex: number) => (
+                    {previewData.data.map((row: any, rowIndex: number) => (
                       <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        {row.map((cell: any, cellIndex: number) => (
+                        {previewData.columns.map((col: string, cellIndex: number) => (
                           <td key={cellIndex} className="border border-gray-300 px-4 py-2 text-sm text-gray-900">
-                            {cell !== null ? String(cell) : ''}
+                            {row[col] !== null && row[col] !== undefined ? String(row[col]) : ''}
                           </td>
                         ))}
                       </tr>
@@ -239,7 +328,8 @@ const DatasetCard: React.FC<DatasetCardProps> = ({
               </div>
               
               <div className="mt-4 text-sm text-gray-600">
-                显示 {previewData.preview_rows} / {previewData.total_rows} 行数据
+                显示 {previewData.data.length} 行数据 
+                {previewData.shape && ` (共 ${previewData.shape[0]} 行 × ${previewData.shape[1]} 列)`}
               </div>
             </div>
           </div>

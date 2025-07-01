@@ -9,7 +9,8 @@
   }
   
   body {
-    @apply font-sans bg-gradient-to-br from-primary-500 to-secondary-500 min-h-screen;
+    font-family: 'Microsoft YaHei', Arial, sans-serif;
+    @apply bg-gradient-to-br from-blue-500 to-purple-500 min-h-screen;
   }
   
   html {
@@ -24,7 +25,7 @@
   }
   
   .btn-primary {
-    @apply bg-primary-500 text-white hover:bg-primary-600 hover:shadow-lg hover:-translate-y-0.5;
+    @apply bg-blue-500 text-white hover:bg-blue-600 hover:shadow-lg hover:-translate-y-0.5;
   }
   
   .btn-secondary {
@@ -56,11 +57,11 @@
   }
   
   .loading-spinner {
-    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500;
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500;
   }
   
   .tag {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800;
   }
   
   .status-badge {
@@ -87,10 +88,10 @@
 /* 自定义工具类 */
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent;
   }
   
   .bg-gradient-primary {
-    @apply bg-gradient-to-br from-primary-500 to-secondary-500;
+    @apply bg-gradient-to-br from-blue-500 to-purple-500;
   }
 } 
