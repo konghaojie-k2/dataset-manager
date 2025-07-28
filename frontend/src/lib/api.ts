@@ -125,6 +125,11 @@ class ApiClient {
       return this.get<DatasetMetadata[]>('/datasets')
     },
 
+    // 根据ID获取数据集详情
+    getById: (id: string): Promise<DatasetMetadata> => {
+      return this.get<DatasetMetadata>(`/datasets/${id}`)
+    },
+
     // 获取数据集详情
     get: (id: string): Promise<DatasetMetadata> => {
       return this.get<DatasetMetadata>(`/datasets/${id}`)

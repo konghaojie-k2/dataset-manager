@@ -53,6 +53,9 @@ class DatasetRepository:
             dataset: 数据集元数据
         """
         try:
+            # 0. 确保业务分析结果被正确构建
+            dataset._build_business_analysis_results()
+            
             # 1. 保存结构化数据到SQLite
             self.db_repository.save_dataset(dataset)
             

@@ -91,6 +91,17 @@ const DatasetList: React.FC = () => {
     }
   }
 
+  // 计算正在分析的任务数量
+  const analyzingCount = datasets.filter(dataset => 
+    dataset.processing_status === 'business_analyzing' || 
+    dataset.processing_status === 'quality_analyzing'
+  ).length
+
+  // 检查是否有错误并提供详细信息
+  const hasAnalyzeError = datasets.some(dataset => 
+    dataset.processing_status === 'analysis_failed'
+  )
+
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -139,6 +150,62 @@ const DatasetList: React.FC = () => {
             </select>
           </div>
         )}
+      </div>
+
+      {/* 状态指示器 */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center">
+              <span className="text-gray-600">数据集总数:</span>
+              <span className="ml-2 font-semibold text-gray-800">{datasets.length}</span>
+            </div>
+            
+            {analyzingCount > 0 && (
+              <div className="flex items-center">
+                <div className="flex items-center text-blue-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+                  <span>正在分析:</span>
+                  <span className="ml-1 font-semibold">{analyzingCount}</span>
+                  <span className="ml-1">个任务</span>
+                </div>
+              </div>
+            )}
+
+            {hasAnalyzeError && (
+              <div className="flex items-center text-red-600">
+                <span className="mr-1">⚠️</span>
+                <span>有分析任务失败</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-3">
+            {analyzingCount > 0 && (
+              <div className="text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full">
+                自动刷新中...
+              </div>
+            )}
+            
+            <button
+              onClick={refreshDatasets}
+              disabled={loading}
+              className="flex items-center px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                  刷新中...
+                </>
+              ) : (
+                <>
+                  <span className="mr-1">🔄</span>
+                  刷新
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 数据集列表 */}

@@ -12,6 +12,17 @@ sys.path.insert(0, str(project_root))
 def main():
     """启动开发服务器"""
     
+    # 加载环境变量
+    from dotenv import load_dotenv
+    
+    # 首先加载项目根目录的.env文件
+    env_file = project_root / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"✅ 已加载环境变量文件: {env_file}")
+    else:
+        print(f"⚠️  环境变量文件不存在: {env_file}")
+    
     # 设置环境变量（开发环境默认值）
     os.environ.setdefault("DATASET_MANAGER_DEBUG", "true")
     os.environ.setdefault("DATASET_MANAGER_HOST", "127.0.0.1")

@@ -26,7 +26,7 @@ class Settings(BaseModel):
     # 目录配置
     upload_dir: Path = Field(default=Path("uploads"), description="上传目录")
     metadata_dir: Path = Field(default=Path("metadata"), description="元数据目录")
-    logs_dir: Path = Field(default=Path("logs"), description="日志目录")
+    logs_dir: Path = Field(default=Path("../logs"), description="日志目录")
     
     # LLM配置
     deepseek_api_key: Optional[str] = Field(default=None, description="DeepSeek API密钥")
