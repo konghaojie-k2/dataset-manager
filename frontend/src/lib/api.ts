@@ -7,6 +7,10 @@ import {
   MetadataExtractionRequest,
   TagUpdateRequest,
 } from '@/types/dataset'
+import {
+  ChatRequest,
+  ChatResponse,
+} from '@/types/chat'
 
 // API基础配置 - 使用相对路径通过Next.js代理
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
@@ -180,6 +184,11 @@ class ApiClient {
       return this.post<ApiResponse>(`/datasets/${id}/start-quality-analysis`)
     },
 
+    // 启动增强分析（领域识别+重要列识别）
+    startEnhancedAnalysis: (id: string): Promise<ApiResponse> => {
+      return this.post<ApiResponse>(`/datasets/${id}/start-enhanced-analysis`)
+    },
+
     // 获取业务分析结果
     getBusinessAnalysisResults: (id: string): Promise<any> => {
       return this.get<any>(`/datasets/${id}/business-analysis-results`)
@@ -236,6 +245,62 @@ class ApiClient {
         dataset_id: datasetId,
         tag_names: tags
       })
+    },
+  }
+
+  // 数据血缘关系相关API
+  lineage = {
+    // 建立血缘关系
+    establish: (datasetId: string, sourceDatasetIds: string[], transformationType: string, transformationDescription: string): Promise<ApiResponse> => {
+      return this.post<ApiResponse>('/lineage/establish', {
+        dataset_id: datasetId,
+        source_dataset_ids: sourceDatasetIds,
+        transformation_type: transformationType,
+        transformation_description: transformationDescription
+      })
+    },
+
+    // 获取血缘链
+    getChain: (datasetId: string): Promise<any> => {
+      return this.get<any>(`/lineage/chain/${datasetId}`)
+    },
+
+    // 获取可视化数据
+    getVisualization: (datasetId: string): Promise<any> => {
+      return this.get<any>(`/lineage/visualization/${datasetId}`)
+    },
+
+    // 删除血缘关系
+    delete: (datasetId: string): Promise<ApiResponse> => {
+      return this.delete<ApiResponse>(`/lineage/delete/${datasetId}`)
+    },
+
+    // 获取上游数据集
+    getUpstream: (datasetId: string, maxDepth: number = 5): Promise<any> => {
+      return this.get<any>(`/lineage/upstream/${datasetId}?max_depth=${maxDepth}`)
+    },
+
+    // 获取下游数据集
+    getDownstream: (datasetId: string, maxDepth: number = 5): Promise<any> => {
+      return this.get<any>(`/lineage/downstream/${datasetId}?max_depth=${maxDepth}`)
+    },
+  }
+
+  // 聊天相关API
+  chat = {
+    // 发送聊天消息
+    send: (request: ChatRequest): Promise<ChatResponse> => {
+      return this.post<ChatResponse>('/chat/send', request)
+    },
+
+    // 获取聊天历史
+    getHistory: (sessionId: string): Promise<{ session_id: string; messages: any[]; total: number }> => {
+      return this.get<{ session_id: string; messages: any[]; total: number }>(`/chat/history/${sessionId}`)
+    },
+
+    // 清除会话
+    clearSession: (sessionId: string): Promise<ApiResponse> => {
+      return this.delete<ApiResponse>(`/chat/session/${sessionId}`)
     },
   }
 

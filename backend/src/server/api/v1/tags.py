@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from ....schemas.tag import (
+from src.schemas.tag import (
     Tag,
     TagCreateRequest,
     TagUpdateRequest as TagUpdateRequestModel,
@@ -13,8 +13,8 @@ from ....schemas.tag import (
     DatasetTagUpdateRequest,
     TagCategory
 )
-from ....core.tag_service import TagService
-from ...dependencies import get_tag_service
+from src.core.tag_service import TagService
+from src.server.dependencies import get_tag_service
 
 
 # 创建路由器

@@ -26,7 +26,7 @@ def main():
     # 设置环境变量（开发环境默认值）
     os.environ.setdefault("DATASET_MANAGER_DEBUG", "true")
     os.environ.setdefault("DATASET_MANAGER_HOST", "127.0.0.1")
-    os.environ.setdefault("DATASET_MANAGER_PORT", "8000")
+    os.environ.setdefault("DATASET_MANAGER_PORT", "8003")
     
     # 检查DeepSeek API密钥
     if not os.getenv("DATASET_MANAGER_DEEPSEEK_API_KEY"):
@@ -45,8 +45,8 @@ def main():
             return
     
     print("🚀 启动数据管理系统...")
-    print(f"📍 访问地址: http://{os.getenv('DATASET_MANAGER_HOST', '127.0.0.1')}:{os.getenv('DATASET_MANAGER_PORT', '8000')}")
-    print(f"📚 API文档: http://{os.getenv('DATASET_MANAGER_HOST', '127.0.0.1')}:{os.getenv('DATASET_MANAGER_PORT', '8000')}/docs")
+    print(f"📍 访问地址: http://{os.getenv('DATASET_MANAGER_HOST', '127.0.0.1')}:{os.getenv('DATASET_MANAGER_PORT', '8003')}")
+    print(f"📚 API文档: http://{os.getenv('DATASET_MANAGER_HOST', '127.0.0.1')}:{os.getenv('DATASET_MANAGER_PORT', '8003')}/docs")
     print()
     
     # 启动服务器
@@ -55,7 +55,7 @@ def main():
     uvicorn.run(
         "main:app",
         host=os.getenv("DATASET_MANAGER_HOST", "127.0.0.1"),
-        port=int(os.getenv("DATASET_MANAGER_PORT", "8000")),
+        port=int(os.getenv("DATASET_MANAGER_PORT", "8003")),
         reload=True,
         log_level="info"
     )

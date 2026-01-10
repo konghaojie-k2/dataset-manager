@@ -4,8 +4,8 @@ from typing import Optional
 from fastapi import HTTPException, Depends
 from loguru import logger
 
-from ..core.dataset_service import DatasetService
-from ..core.tag_service import TagService
+from src.core.dataset_service import DatasetService
+from src.core.tag_service import TagService
 
 
 # 全局服务实例

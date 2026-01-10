@@ -5,12 +5,12 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from fastapi.responses import JSONResponse, FileResponse
 from loguru import logger
 
-from ..schemas.dataset import (
+from src.schemas.dataset import (
     DatasetMetadata,
     MetadataExtractionRequest,
     TagUpdateRequest
 )
-from ..core.dataset_service import DatasetService
+from src.core.dataset_service import DatasetService
 from .dependencies import get_dataset_service
 
 
@@ -387,6 +387,36 @@ async def start_quality_analysis(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"启动质量分析失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/datasets/{dataset_id}/start-enhanced-analysis")
+async def start_enhanced_analysis(
+    dataset_id: str,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """启动增强分析（领域识别+重要列识别）
+
+    使用LLM驱动的智能分析，识别:
+    1. 工业领域（半导体、化工、能源等）
+    2. 业务数据类型（设备运行、生产数据、日志等）
+    3. 重要列（关键观测量、控制量）
+
+    Args:
+        dataset_id: 数据集ID
+        service: 数据集服务
+
+    Returns:
+        dict: 分析结果
+    """
+    try:
+        result = await service.start_enhanced_analysis(dataset_id)
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"启动增强分析失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

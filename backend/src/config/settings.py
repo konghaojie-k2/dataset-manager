@@ -55,7 +55,15 @@ class Settings(BaseModel):
     # 数据处理配置
     sample_rows: int = Field(default=1000, description="数据采样行数")
     preview_rows: int = Field(default=10, description="预览行数")
-    
+
+    # Supabase配置
+    supabase_url: Optional[str] = Field(default=None, description="Supabase项目URL")
+    supabase_key: Optional[str] = Field(default=None, description="Supabase Anon Key")
+    supabase_anon_key: Optional[str] = Field(default=None, description="Supabase Anon Key别名")
+    supabase_service_key: Optional[str] = Field(default=None, description="Supabase Service Role Key")
+    storage_bucket_name: str = Field(default="dataset-files", description="Supabase Storage存储桶名称")
+    storage_max_file_size: int = Field(default=100 * 1024 * 1024, description="Storage最大文件大小(字节)")  # 100MB
+
     class Config:
         env_prefix = "DATASET_MANAGER_"
 
@@ -126,7 +134,21 @@ def get_settings() -> Settings:
     preview_rows = os.getenv("DATASET_MANAGER_PREVIEW_ROWS")
     if preview_rows:
         config.preview_rows = int(preview_rows)
-    
+
+    # Supabase配置
+    config.supabase_url = os.getenv("DATASET_MANAGER_SUPABASE_URL")
+    config.supabase_key = os.getenv("DATASET_MANAGER_SUPABASE_KEY")
+    config.supabase_anon_key = os.getenv("DATASET_MANAGER_SUPABASE_ANON_KEY")
+    config.supabase_service_key = os.getenv("DATASET_MANAGER_SUPABASE_SERVICE_KEY")
+
+    storage_bucket_name = os.getenv("DATASET_MANAGER_STORAGE_BUCKET_NAME")
+    if storage_bucket_name:
+        config.storage_bucket_name = storage_bucket_name
+
+    storage_max_file_size = os.getenv("DATASET_MANAGER_STORAGE_MAX_FILE_SIZE")
+    if storage_max_file_size:
+        config.storage_max_file_size = int(storage_max_file_size)
+
     # 创建必要的目录
     config.upload_dir.mkdir(parents=True, exist_ok=True)
     config.metadata_dir.mkdir(parents=True, exist_ok=True)

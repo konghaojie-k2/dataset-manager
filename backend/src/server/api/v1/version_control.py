@@ -7,11 +7,11 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query, Path
 from loguru import logger
 
-from ...dependencies import get_dataset_service
-from ....schemas.dataset import DatasetMetadata
-from ....utils.version_control import version_controller
-from ....utils.report_version_manager import get_report_version_manager
-from ....config.settings import get_settings
+from src.server.dependencies import get_dataset_service
+from src.schemas.dataset import DatasetMetadata
+from src.utils.version_control import version_controller
+from src.utils.report_version_manager import get_report_version_manager
+from src.config.settings import get_settings
 
 router = APIRouter(prefix="/api/v1/version-control", tags=["版本控制"])
 

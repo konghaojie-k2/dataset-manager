@@ -13,6 +13,9 @@ class ColumnMetadata(BaseModel):
     business_meaning: str = Field(description="业务含义")
     is_device_id: bool = Field(default=False, description="是否为设备ID列")
     is_timestamp: bool = Field(default=False, description="是否为时间列")
+    is_key_measurement: bool = Field(default=False, description="是否为关键观测量")
+    is_control_variable: bool = Field(default=False, description="是否为控制量")
+    importance_score: float = Field(default=0.0, description="重要性评分(0-1)")
     null_count: int = Field(description="空值数量")
     unique_count: int = Field(description="唯一值数量")
     sample_values: List[str] = Field(description="样本值")
@@ -43,9 +46,15 @@ class DatasetMetadata(BaseModel):
     file_hash: Optional[str] = Field(None, description="文件哈希值(SHA256)")
     content_hash: Optional[str] = Field(None, description="数据内容哈希值")
     version: str = Field(default="1.0", description="版本号")
-    parent_version_id: Optional[str] = Field(None, description="父版本ID")
+    parent_version_id: Optional[str] = Field(None, description="父版本ID(同一数据集的版本)")
     version_type: str = Field(default="original", description="版本类型: original, updated, duplicate")
     version_notes: Optional[str] = Field(None, description="版本说明")
+
+    # 数据血缘关系字段
+    source_dataset_ids: List[str] = Field(default_factory=list, description="源数据集ID列表(派生数据的来源)")
+    transformation_type: Optional[str] = Field(None, description="转换类型: filter/aggregate/join/derive/feature_engineering")
+    transformation_description: Optional[str] = Field(None, description="转换描述")
+    is_derived_data: bool = Field(default=False, description="是否为派生数据")
     
     # 数据基本信息
     time_range_start: Optional[datetime] = Field(None, description="时间范围开始")
@@ -60,6 +69,12 @@ class DatasetMetadata(BaseModel):
     industry: Optional[str] = Field(None, description="行业")
     analysis_domains: List[str] = Field(default_factory=list, description="分析领域")
     applicable_algorithms: List[str] = Field(default_factory=list, description="适用算法")
+
+    # 领域识别和业务类型识别结果
+    industrial_domain: Optional[Dict[str, Any]] = Field(None, description="工业领域识别结果")
+    business_data_types: Optional[List[Dict[str, Any]]] = Field(None, description="业务数据类型识别结果")
+    domain_specific_insights: Optional[Dict[str, Any]] = Field(None, description="领域特定洞察")
+    important_columns_analysis: Optional[Dict[str, Any]] = Field(None, description="重要列分析结果")
     
     # 数据质量
     quality_metrics: Optional[DataQualityMetrics] = Field(None, description="数据质量指标")
@@ -133,4 +148,12 @@ class TagUpdateRequest(BaseModel):
     tags: List[str] = Field(description="标签列表")
     industry: Optional[str] = Field(None, description="行业")
     analysis_domains: List[str] = Field(default_factory=list, description="分析领域")
-    applicable_algorithms: List[str] = Field(default_factory=list, description="适用算法") 
+    applicable_algorithms: List[str] = Field(default_factory=list, description="适用算法")
+
+
+class DataLineageUpdateRequest(BaseModel):
+    """数据血缘关系更新请求"""
+    dataset_id: str = Field(description="数据集ID")
+    source_dataset_ids: List[str] = Field(description="源数据集ID列表")
+    transformation_type: str = Field(description="转换类型")
+    transformation_description: str = Field(description="转换描述") 

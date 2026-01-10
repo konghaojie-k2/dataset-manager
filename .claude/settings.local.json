@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(uv run pytest:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(uv run python:*)"
+    ]
+  }
+}

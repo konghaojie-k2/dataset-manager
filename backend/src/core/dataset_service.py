@@ -431,40 +431,60 @@ class DatasetService:
     
     def get_dataset_preview(self, dataset_id: str, rows: int = 10) -> Optional[Dict[str, Any]]:
         """获取数据集预览
-        
+
         Args:
             dataset_id: 数据集ID
             rows: 预览行数
-            
+
         Returns:
             Optional[Dict[str, Any]]: 数据预览
         """
         try:
             # 使用复用的数据集获取方法
             dataset = get_dataset_by_id(self.repository, dataset_id, "数据预览")
-            
+
             # 提取CSV文件
             file_path = Path(dataset.file_path)
             csv_files = self.file_service.extract_csv_files(file_path)
-            
+
             if not csv_files:
                 return None
-            
+
             # 加载数据预览
             df = self.file_service.load_csv_data(csv_files[0], sample_rows=rows)
-            
+
             # 将dtypes转换为字符串，避免JSON序列化问题
             dtypes_dict = {}
             for col, dtype in df.dtypes.items():
                 dtypes_dict[col] = str(dtype)
-            
+
+            # 转换数据为可JSON序列化的格式，处理特殊浮点值
+            import numpy as np
+            data = []
+            for record in df.to_dict('records'):
+                clean_record = {}
+                for key, value in record.items():
+                    # 处理特殊浮点值
+                    if isinstance(value, (float, np.floating)):
+                        if np.isnan(value) or np.isinf(value):
+                            clean_record[key] = None
+                        else:
+                            clean_record[key] = float(value)
+                    elif isinstance(value, (np.integer,)):
+                        clean_record[key] = int(value)
+                    elif isinstance(value, (np.bool_,)):
+                        clean_record[key] = bool(value)
+                    else:
+                        clean_record[key] = value
+                data.append(clean_record)
+
             return {
                 "shape": df.shape,
                 "columns": df.columns.tolist(),
-                "data": df.to_dict('records'),
+                "data": data,
                 "dtypes": dtypes_dict  # 使用转换后的字符串字典
             }
-            
+
         except Exception as e:
             logger.error(f"获取数据预览失败: {e}")
             return None
@@ -791,6 +811,107 @@ class DatasetService:
             logger.error(f"启动质量分析失败: {e}")
             # 安全地更新状态为失败
             safe_update_dataset_status(self.repository, dataset_id, "quality_failed")
+            raise
+
+    async def start_enhanced_analysis(self, dataset_id: str) -> Dict[str, Any]:
+        """启动增强分析（领域识别+重要列识别）
+
+        使用LLM驱动的智能分析，识别:
+        1. 工业领域（半导体、化工、能源等）
+        2. 业务数据类型（设备运行、生产数据、日志等）
+        3. 重要列（关键观测量、控制量）
+
+        Args:
+            dataset_id: 数据集ID
+
+        Returns:
+            Dict[str, Any]: 分析结果
+        """
+        try:
+            logger.info(f"开始启动增强分析: {dataset_id}")
+
+            # 1. 获取数据集
+            dataset = self.repository.get_by_id(dataset_id)
+            if not dataset:
+                raise ValueError(f"数据集不存在: {dataset_id}")
+
+            # 获取文件路径
+            file_path = Path(dataset.file_path)
+            if not file_path.exists():
+                raise FileNotFoundError(f"数据文件不存在: {file_path}")
+
+            # 2. 运行增强分析工作流
+            from ..graph import run_enhanced_analysis
+
+            logger.info(f"开始执行增强分析: {dataset_id}")
+            analysis_result = await run_enhanced_analysis(
+                file_path=str(file_path),
+                dataset_name=dataset.name,
+                user_requirements=""
+            )
+
+            # 检查是否有错误
+            if analysis_result.get("errors"):
+                logger.error(f"增强分析失败: {analysis_result.get('errors', [])}")
+                raise RuntimeError(f"增强分析失败: {analysis_result['errors']}")
+
+            # 3. 更新数据集元数据
+            dataset.industrial_domain = analysis_result.get("industrial_domain")
+            dataset.business_data_types = analysis_result.get("business_data_types")
+            dataset.domain_specific_insights = analysis_result.get("domain_specific_insights")
+            dataset.important_columns_analysis = analysis_result.get("important_columns_analysis")
+
+            # 更新industry字段（向后兼容）
+            if dataset.industrial_domain and "primary" in dataset.industrial_domain:
+                dataset.industry = dataset.industrial_domain["primary"]
+
+            # 更新列元数据
+            if analysis_result.get("important_columns_analysis"):
+                important_columns = analysis_result["important_columns_analysis"]
+                key_measurements = important_columns.get("key_measurement_variables", [])
+                control_vars = important_columns.get("control_variables", [])
+
+                # 构建映射字典
+                key_measurement_scores = {
+                    m["column_name"]: m["importance_score"]
+                    for m in key_measurements
+                }
+                control_var_names = {c["column_name"] for c in control_vars}
+
+                # 更新列元数据
+                for col in dataset.columns:
+                    # 更新关键观测量标记
+                    if col.name in key_measurement_scores:
+                        col.is_key_measurement = True
+                        col.importance_score = key_measurement_scores[col.name]
+
+                    # 更新控制量标记
+                    if col.name in control_var_names:
+                        col.is_control_variable = True
+                        if col.importance_score == 0.0:
+                            # 从控制量信息中获取评分
+                            for cv in control_vars:
+                                if cv["column_name"] == col.name:
+                                    col.importance_score = cv.get("importance_score", 0.7)
+                                    break
+
+            # 保存更新
+            self.repository.save(dataset)
+
+            logger.info(f"增强分析完成: {dataset_id}")
+
+            return {
+                "success": True,
+                "message": "增强分析完成",
+                "dataset_id": dataset_id,
+                "industrial_domain": dataset.industrial_domain,
+                "business_data_types": dataset.business_data_types,
+                "important_columns_analysis": dataset.important_columns_analysis,
+                "status": "enhanced_completed"
+            }
+
+        except Exception as e:
+            logger.error(f"启动增强分析失败: {e}")
             raise
     
 

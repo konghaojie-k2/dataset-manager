@@ -14,14 +14,16 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from loguru import logger
 
-from ..config.settings import get_settings, setup_logging
-from ..core.dataset_service import DatasetService
-from ..core.tag_service import TagService
+from src.config.settings import get_settings, setup_logging
+from src.core.dataset_service_factory import create_dataset_service
+from src.core.tag_service import TagService
 from .routes import router
-from .mcp_routes import mcp_router
+# from .mcp_routes import mcp_router  # MCP路由暂未实现
 from .api.v1.reports import router as reports_router
 from .api.v1.tags import router as tags_router
 from .api.v1.version_control import router as version_control_router
+from .api.v1.lineage import router as lineage_router
+from .api.v1.chat import router as chat_router
 from .dependencies import set_dataset_service, set_tag_service
 from .middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 
@@ -46,11 +48,8 @@ async def lifespan(app: FastAPI):
             detail="DeepSeek API密钥未配置，请设置环境变量 DATASET_MANAGER_DEEPSEEK_API_KEY"
         )
     
-    # 初始化数据集服务
-    dataset_service_instance = DatasetService(
-        upload_dir=config.upload_dir,
-        metadata_dir=config.metadata_dir
-    )
+    # 初始化数据集服务（自动选择Supabase或本地存储）
+    dataset_service_instance = create_dataset_service()
     
     # 设置依赖注入
     set_dataset_service(dataset_service_instance)
@@ -98,10 +97,12 @@ def create_app() -> FastAPI:
 
     # 注册路由
     app.include_router(router)
-    app.include_router(mcp_router)
+    # app.include_router(mcp_router)  # MCP路由暂未实现
     app.include_router(reports_router)
     app.include_router(tags_router)
     app.include_router(version_control_router)
+    app.include_router(lineage_router)
+    app.include_router(chat_router)  # 聊天路由
 
     # 静态文件服务（如果有前端文件）
     web_dir = Path("web")

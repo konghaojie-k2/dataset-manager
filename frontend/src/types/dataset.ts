@@ -7,6 +7,7 @@ export enum DatasetStatus {
   QUALITY_ANALYZING = 'quality_analyzing',
   QUALITY_COMPLETED = 'quality_completed',
   ANALYSIS_FAILED = 'analysis_failed',
+  ENHANCED_COMPLETED = 'enhanced_completed',
 }
 
 // 数据集元数据接口
@@ -22,21 +23,183 @@ export interface DatasetMetadata {
   processing_status: DatasetStatus
   created_at: string
   updated_at: string
-  columns?: DatasetColumn[]
+  columns?: EnhancedDatasetColumn[]
   quality_analysis_results?: QualityAnalysisResults
   business_analysis_results?: BusinessAnalysisResults
   version_type?: string
   original_dataset_id?: string
   version_number?: number
+
+  // 增强分析相关字段
+  industrial_domain?: IndustrialDomain
+  business_data_types?: BusinessDataType[]
+  domain_specific_insights?: DomainSpecificInsights
+  important_columns_analysis?: ImportantColumnsAnalysis
+
+  // 数据血缘关系字段
+  source_dataset_ids?: string[]
+  transformation_type?: TransformationType
+  transformation_description?: string
+  is_derived_data?: boolean
 }
 
-// 数据集列信息
-export interface DatasetColumn {
+// 增强的数据集列信息
+export interface EnhancedDatasetColumn {
   name: string
   type: string
   null_count: number
   unique_count: number
   description?: string
+  business_meaning?: string
+  is_device_id?: boolean
+  is_timestamp?: boolean
+  is_key_measurement?: boolean
+  is_control_variable?: boolean
+  importance_score?: number
+  sample_values?: any[]
+}
+
+// 工业领域识别结果
+export interface IndustrialDomain {
+  primary: string
+  primary_en: string
+  secondary: string[]
+  confidence: number
+  reasoning: string
+}
+
+// 业务数据类型
+export interface BusinessDataType {
+  type: string
+  type_en: string
+  confidence: number
+  evidence: string[]
+}
+
+// 领域特定洞察
+export interface DomainSpecificInsights {
+  process_type: string
+  key_equipment: string[]
+  critical_parameters: string[]
+  typical_use_cases: string[]
+}
+
+// 重要列分析结果
+export interface ImportantColumnsAnalysis {
+  key_measurement_variables: KeyVariable[]
+  control_variables: ControlVariable[]
+  other_important_columns?: OtherImportantColumns
+  control_loop_insights?: ControlLoopInsight[]
+  recommendations?: ColumnRecommendations
+}
+
+// 关键变量
+export interface KeyVariable {
+  column_name: string
+  importance_score: number
+  category: string
+  reasoning: string
+  statistics_summary?: {
+    mean: number
+    std: number
+    min: number
+    max: number
+    variance: number
+  }
+  business_impact: string
+}
+
+// 控制变量
+export interface ControlVariable {
+  column_name: string
+  control_type: string
+  importance_score: number
+  reasoning: string
+  possible_target_variables: string[]
+  control_range: string
+}
+
+// 其他重要列
+export interface OtherImportantColumns {
+  device_id_columns: string[]
+  timestamp_columns: string[]
+  status_columns: string[]
+  metadata_columns: string[]
+}
+
+// 控制回路洞察
+export interface ControlLoopInsight {
+  control_loop_id: string
+  control_variable: string
+  target_variable: string
+  relationship_description: string
+  correlation: number
+}
+
+// 列建议
+export interface ColumnRecommendations {
+  high_priority_monitoring: string[]
+  control_optimization: string[]
+  data_quality_improvement: string[]
+}
+
+// 数据转换类型
+export type TransformationType =
+  | 'filter'
+  | 'aggregate'
+  | 'join'
+  | 'derive'
+  | 'feature_engineering'
+
+// 数据血缘关系链
+export interface LineageChain {
+  current_dataset: {
+    id: string
+    name: string
+    is_derived: boolean
+    transformation_type?: TransformationType
+    transformation_description?: string
+  }
+  upstream: LineageNode[]
+  downstream: LineageNode[]
+  generated_at: string
+}
+
+// 血缘节点
+export interface LineageNode {
+  id: string
+  name: string
+  depth: number
+  transformation?: TransformationType
+  transformation_description?: string
+}
+
+// 血缘可视化数据
+export interface LineageVisualizationData {
+  nodes: LineageVisNode[]
+  edges: LineageVisEdge[]
+  metadata: {
+    total_nodes: number
+    total_edges: number
+    generated_at: string
+  }
+}
+
+// 可视化节点
+export interface LineageVisNode {
+  id: string
+  label: string
+  type: 'current' | 'source' | 'derived'
+  is_derived?: boolean
+  depth?: number
+}
+
+// 可视化边
+export interface LineageVisEdge {
+  from: string
+  to: string
+  label?: string
+  type: string
 }
 
 // 质量分析结果

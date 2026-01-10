@@ -306,6 +306,89 @@ async def run_industrial_analysis(
     )
 
 
+async def run_enhanced_analysis(
+    file_path: str,
+    dataset_name: str,
+    user_requirements: str = None,
+    config: Dict[str, Any] = None
+) -> AnalysisState:
+    """运行增强分析（领域识别+重要列识别）
+
+    使用LLM驱动的智能分析，识别:
+    1. 工业领域（半导体、化工、能源等）
+    2. 业务数据类型（设备运行、生产数据、日志等）
+    3. 重要列（关键观测量、控制量）
+
+    Args:
+        file_path: 数据文件路径
+        dataset_name: 数据集名称
+        user_requirements: 用户需求描述
+        config: 额外配置
+
+    Returns:
+        AnalysisState: 包含增强分析结果的状态
+    """
+    from .enhanced_nodes import EnhancedAnalysisNodes
+    from .state import create_initial_state
+    from ..tools.data_analyzer import DataAnalyzer
+
+    logger.info(f"开始运行增强分析: {dataset_name}")
+
+    # 创建初始状态
+    state = create_initial_state(
+        file_path=file_path,
+        dataset_name=dataset_name,
+        analysis_goals=["domain_identification", "important_columns"],
+        workflow_type="enhanced",
+        user_requirements=user_requirements
+    )
+
+    if config:
+        state["workflow_config"] = config
+
+    try:
+        # 初始化增强节点和数据加载器
+        enhanced_nodes = EnhancedAnalysisNodes()
+        data_analyzer = DataAnalyzer()
+
+        # 1. 加载数据
+        from pathlib import Path
+        file_path_obj = Path(file_path)
+        data_analyzer.data = data_analyzer.load_data(file_path_obj)
+
+        # 获取基础信息
+        basic_info = data_analyzer.get_basic_info()
+        state["data_info"] = basic_info
+        state["current_step"] = "data_loaded"
+        state["completed_steps"].append("load_data")
+
+        # 2. 执行领域和业务类型识别
+        logger.info("执行领域和业务类型识别")
+        state = enhanced_nodes.identify_domain_and_type_node(state)
+
+        # 3. 执行重要列识别
+        logger.info("执行重要列识别")
+        state = enhanced_nodes.identify_important_columns_node(state)
+
+        # 4. 更新元数据
+        logger.info("更新元数据")
+        state = enhanced_nodes.update_metadata_with_enhanced_info_node(state)
+
+        # 标记完成
+        state["current_step"] = "completed"
+        state["progress"] = 100.0
+
+        logger.info(f"增强分析完成: {dataset_name}")
+        return state
+
+    except Exception as e:
+        error_msg = f"增强分析执行失败: {e}"
+        logger.error(error_msg)
+        state["errors"].append(error_msg)
+        state["current_step"] = "failed"
+        return state
+
+
 async def run_analysis_stream(
     file_path: str,
     dataset_name: str,
