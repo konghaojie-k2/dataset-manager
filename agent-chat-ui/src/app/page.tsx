@@ -12,12 +12,15 @@ import { DatasetMarketplaceHeader } from '@/components/dataset/DatasetMarketplac
 import { datasetAPI, type Dataset, type AnalysisResult } from '@/lib/api-extension';
 import { AnalysisProgressPanel } from '@/components/analysis/AnalysisProgressPanel';
 import { DynamicResultView } from '@/components/analysis/DynamicResultView';
+import { useQueryState } from 'nuqs';
 
 type TabType = 'chat' | 'browse' | 'upload';
 
 export default function HomePage(): React.ReactNode {
   // Tab state - default to chat (智能查询)
   const [activeTab, setActiveTab] = useState<TabType>('chat');
+  // Check if there's an active thread (chat in progress)
+  const [threadId] = useQueryState("threadId");
 
   // Dataset states
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -43,6 +46,14 @@ export default function HomePage(): React.ReactNode {
   // Upload complete callback
   const handleUploadComplete = useCallback((datasetId: string) => {
     setRefreshTrigger(prev => prev + 1);
+  }, []);
+
+  // Dataset deleted callback
+  const handleDatasetDeleted = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+    // Clear selected dataset if it was deleted
+    setSelectedDatasetForView(null);
+    setViewingAnalysisResult(null);
   }, []);
 
   // Analysis start callback
@@ -101,13 +112,51 @@ export default function HomePage(): React.ReactNode {
       <ThreadProvider>
         <StreamProvider>
           <ArtifactProvider>
-            <div className="min-h-screen bg-[#faf8f5]">
-              {/* Header */}
-              <DatasetMarketplaceHeader />
-
-              {/* Tab Navigation */}
-              <div className="border-b border-[#e8e4df] bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+            <div className="flex flex-col h-screen bg-[#faf8f5] overflow-hidden">
+              {/* Combined Header and Tab Navigation - Only show header content on homepage when no active chat */}
+              <div className="flex-shrink-0 border-b border-[#e8e4df] bg-white z-40">
                 <div className="max-w-7xl mx-auto px-6">
+                  {/* Header content - only show when no active chat */}
+                  {!threadId && (
+                    <div className="pt-8 pb-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex-1">
+                          <h1
+                            className="text-3xl font-bold text-[#1a1a1a] mb-1 tracking-tight"
+                            style={{ fontFamily: 'var(--font-playfair)' }}
+                          >
+                            数据集超市
+                          </h1>
+                          <p className="text-sm text-gray-600 font-light" style={{ fontFamily: 'var(--font-outfit)' }}>
+                            发现、探索和分析高质量数据集
+                          </p>
+                        </div>
+                        {/* Stats */}
+                        <div className="hidden md:flex gap-6 text-center">
+                          <div>
+                            <div className="text-xl font-bold text-[#c75b39]" style={{ fontFamily: 'var(--font-playfair)' }}>
+                              1000+
+                            </div>
+                            <div className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">数据集</div>
+                          </div>
+                          <div>
+                            <div className="text-xl font-bold text-[#7c9885]" style={{ fontFamily: 'var(--font-playfair)' }}>
+                              50+
+                            </div>
+                            <div className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">行业领域</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Decorative line */}
+                      <div className="flex gap-1 mb-2">
+                        <div className="h-0.5 w-12 bg-[#c75b39]" />
+                        <div className="h-0.5 w-6 bg-[#7c9885]" />
+                        <div className="h-0.5 w-3 bg-gray-300" />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Tab Navigation */}
                   <nav className="flex gap-8">
                     <button
                       onClick={() => setActiveTab('chat')}
@@ -162,76 +211,10 @@ export default function HomePage(): React.ReactNode {
               </div>
 
               {/* Content */}
-              <main className="max-w-7xl mx-auto">
-                {activeTab === 'browse' && (
-                  <div className="relative px-6 py-8">
-                    <DatasetBrowseTab
-                      datasets={datasets}
-                      onDatasetSelect={handleSelectDataset}
-                      refreshTrigger={refreshTrigger}
-                    />
-
-                    {/* Backdrop */}
-                    {selectedDatasetForView && viewingAnalysisResult && (
-                      <div
-                        className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
-                        onClick={handleCloseAnalysisView}
-                      />
-                    )}
-
-                    {/* Analysis Result Side Panel */}
-                    {selectedDatasetForView && viewingAnalysisResult && (
-                      <div className="fixed inset-x-0 top-[180px] bottom-0 mx-auto max-w-5xl bg-white border border-[#e8e4df] shadow-2xl overflow-hidden flex flex-col z-50 animate-in slide-in-from-top duration-300 rounded-2xl">
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-[#faf8f5] to-white border-b border-[#e8e4df] px-8 py-6 flex items-center justify-between shrink-0">
-                          <div className="flex-1 min-w-0">
-                            <h2
-                              className="text-2xl font-bold text-[#1a1a1a] truncate"
-                              style={{ fontFamily: 'var(--font-playfair)' }}
-                            >
-                              {selectedDatasetForView.name}
-                            </h2>
-                            <p className="text-sm text-gray-500 mt-1 truncate">
-                              {selectedDatasetForView.description || '数据分析报告'}
-                            </p>
-                          </div>
-                          <button
-                            onClick={handleCloseAnalysisView}
-                            className="ml-4 flex-shrink-0 p-2 hover:bg-gray-100 rounded-full transition-colors group"
-                            aria-label="关闭"
-                          >
-                            <svg className="w-7 h-7 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-
-                        {/* Analysis results */}
-                        <div className="flex-1 overflow-y-auto p-8 bg-white">
-                          <DynamicResultView
-                            datasetId={selectedDatasetForView.id}
-                            analysisResult={viewingAnalysisResult}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === 'upload' && (
-                  <div className="px-6 py-8">
-                    <DatasetUploadTab
-                      onUploadComplete={handleUploadComplete}
-                      onAnalysisStart={handleAnalysisStart}
-                      analyzingDatasetId={analyzingDatasetId}
-                      analysisResult={analysisResult}
-                      onAnalysisComplete={handleAnalysisComplete}
-                    />
-                  </div>
-                )}
-
-                {activeTab === 'chat' && (
-                  <div className="h-[calc(100vh-180px)]">
+              {activeTab === 'chat' ? (
+                // Chat tab: full width to maintain consistent background
+                <main className="flex-1 w-full overflow-hidden">
+                  <div className="h-full">
                     {analysisResult ? (
                       // Show analysis results (for upload tab)
                       <div className="h-full overflow-y-auto p-6 bg-white">
@@ -269,7 +252,7 @@ export default function HomePage(): React.ReactNode {
                       </div>
                     ) : (
                       // Show chat interface (independent query)
-                      <div className="bg-white border-l border-r border-[#e8e4df] h-full">
+                      <div className="h-full">
                         <Thread
                           datasets={datasets}
                           onDatasetSelect={handleSelectDataset}
@@ -277,8 +260,80 @@ export default function HomePage(): React.ReactNode {
                       </div>
                     )}
                   </div>
-                )}
-              </main>
+                </main>
+              ) : (
+                // Browse and Upload tabs: centered content
+                <main className="max-w-7xl mx-auto">
+                  {activeTab === 'browse' && (
+                    <div className="relative px-6 py-8">
+                      <DatasetBrowseTab
+                        datasets={datasets}
+                        onDatasetSelect={handleSelectDataset}
+                        refreshTrigger={refreshTrigger}
+                        onDatasetDeleted={handleDatasetDeleted}
+                        analyzingId={analyzingDatasetId}
+                      />
+
+                      {/* Backdrop */}
+                      {selectedDatasetForView && viewingAnalysisResult && (
+                        <div
+                          className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
+                          onClick={handleCloseAnalysisView}
+                        />
+                      )}
+
+                      {/* Analysis Result Side Panel */}
+                      {selectedDatasetForView && viewingAnalysisResult && (
+                        <div className="fixed inset-x-0 top-[180px] bottom-0 mx-auto max-w-5xl bg-white border border-[#e8e4df] shadow-2xl overflow-hidden flex flex-col z-50 animate-in slide-in-from-top duration-300 rounded-2xl">
+                          {/* Header */}
+                          <div className="bg-gradient-to-r from-[#faf8f5] to-white border-b border-[#e8e4df] px-8 py-6 flex items-center justify-between shrink-0">
+                            <div className="flex-1 min-w-0">
+                              <h2
+                                className="text-2xl font-bold text-[#1a1a1a] truncate"
+                                style={{ fontFamily: 'var(--font-playfair)' }}
+                              >
+                                {selectedDatasetForView.name}
+                              </h2>
+                              <p className="text-sm text-gray-500 mt-1 truncate">
+                                {selectedDatasetForView.description || '数据分析报告'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={handleCloseAnalysisView}
+                              className="ml-4 flex-shrink-0 p-2 hover:bg-gray-100 rounded-full transition-colors group"
+                              aria-label="关闭"
+                            >
+                              <svg className="w-7 h-7 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+
+                          {/* Analysis results */}
+                          <div className="flex-1 overflow-y-auto p-8 bg-white">
+                            <DynamicResultView
+                              datasetId={selectedDatasetForView.id}
+                              analysisResult={viewingAnalysisResult}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'upload' && (
+                    <div className="px-6 py-8">
+                      <DatasetUploadTab
+                        onUploadComplete={handleUploadComplete}
+                        onAnalysisStart={handleAnalysisStart}
+                        analyzingDatasetId={analyzingDatasetId}
+                        analysisResult={analysisResult}
+                        onAnalysisComplete={handleAnalysisComplete}
+                      />
+                    </div>
+                  )}
+                </main>
+              )}
 
               {/* Footer - only show on browse/upload tabs */}
               {activeTab !== 'chat' && (

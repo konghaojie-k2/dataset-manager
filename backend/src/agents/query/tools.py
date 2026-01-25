@@ -208,8 +208,8 @@ async def get_dataset_details_tool(dataset_id: str) -> str:
 
         # 检查是否有质量分析结果
         has_quality_analysis = bool(
-            hasattr(dataset, 'quality_analysis_report') and
-            dataset.quality_analysis_report
+            hasattr(dataset, 'quality_analysis_results') and
+            dataset.quality_analysis_results
         )
 
         # 检查是否有增强分析结果

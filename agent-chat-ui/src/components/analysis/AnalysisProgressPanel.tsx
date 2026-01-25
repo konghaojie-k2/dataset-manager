@@ -132,24 +132,32 @@ export function AnalysisProgressPanel({ datasetId, onComplete }: AnalysisProgres
       </div>
 
       {/* 中间结果 */}
-      {progress.intermediate_result && (
+      {progress.intermediate_result && progress.intermediate_result.row_count && (
         <div className="mt-4 p-4 bg-white rounded border">
           <h4 className="font-semibold mb-3">扫描结果</h4>
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-gray-500">列数：</span>
-              <span className="font-medium ml-2">{progress.intermediate_result.columns_detected}</span>
+              <span className="font-medium ml-2">{progress.intermediate_result.columns_detected || '-'}</span>
             </div>
             <div>
               <span className="text-gray-500">行数：</span>
-              <span className="font-medium ml-2">{progress.intermediate_result.row_count.toLocaleString()}</span>
+              <span className="font-medium ml-2">
+                {progress.intermediate_result.row_count
+                  ? progress.intermediate_result.row_count.toLocaleString()
+                  : '-'}
+              </span>
             </div>
             <div>
               <span className="text-gray-500">数据类型：</span>
               <span className="font-medium ml-2">
-                数值: {progress.intermediate_result.data_types.numeric}
-                {', '}分类: {progress.intermediate_result.data_types.categorical}
-                {', '}时间: {progress.intermediate_result.data_types.datetime}
+                {progress.intermediate_result.data_types ? (
+                  <>
+                    数值: {progress.intermediate_result.data_types.numeric || 0}
+                    {', '}分类: {progress.intermediate_result.data_types.categorical || 0}
+                    {', '}时间: {progress.intermediate_result.data_types.datetime || 0}
+                  </>
+                ) : '-'}
               </span>
             </div>
           </div>

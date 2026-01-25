@@ -97,7 +97,11 @@ async def scan_dataset_tool(dataset_id: str) -> str:
 
         # 获取基础信息
         basic_info = data_analyzer.get_basic_info()
-        columns_info = data_analyzer.get_columns_info()
+        
+        # 从基础信息中提取列信息
+        columns = basic_info.get("columns", [])
+        dtypes = basic_info.get("dtypes", {})
+        null_counts = basic_info.get("null_counts", {})
 
         # 分析列类型
         data_types = {
@@ -111,9 +115,9 @@ async def scan_dataset_tool(dataset_id: str) -> str:
         has_timestamp = False
         has_device_column = False
 
-        for col_info in columns_info:
-            column_names.append(col_info["name"])
-            dtype = col_info.get("dtype", "object")
+        for col_name in columns:
+            column_names.append(col_name)
+            dtype = str(dtypes.get(col_name, "object"))
 
             if "int" in dtype or "float" in dtype:
                 data_types["numeric"] += 1
@@ -124,14 +128,14 @@ async def scan_dataset_tool(dataset_id: str) -> str:
                 data_types["categorical"] += 1
 
             # 检测设备列（包含设备、device、equipment等关键词）
-            col_name_lower = col_info["name"].lower()
+            col_name_lower = col_name.lower()
             if any(keyword in col_name_lower for keyword in ["设备", "device", "equipment", "机组", "unit"]):
                 has_device_column = True
 
         # 检查是否有缺失值
         has_missing = False
-        for col_info in columns_info:
-            if col_info.get("null_count", 0) > 0:
+        for col_name in columns:
+            if null_counts.get(col_name, 0) > 0:
                 has_missing = True
                 break
 
@@ -320,6 +324,7 @@ async def analyze_quality_tool(dataset_id: str) -> str:
 
     try:
         from ...core.dataset_service_factory import create_dataset_service
+        from pathlib import Path
         import json
 
         dataset_service = create_dataset_service()
@@ -333,8 +338,8 @@ async def analyze_quality_tool(dataset_id: str) -> str:
             }, ensure_ascii=False)
 
         # 如果已有质量分析结果，直接返回
-        if hasattr(dataset, 'quality_analysis_report') and dataset.quality_analysis_report:
-            report = dataset.quality_analysis_report
+        if hasattr(dataset, 'quality_analysis_results') and dataset.quality_analysis_results:
+            report = dataset.quality_analysis_results
             return json.dumps({
                 "dataset_id": dataset_id,
                 "status": "completed",
@@ -373,7 +378,7 @@ async def analyze_quality_tool(dataset_id: str) -> str:
 
         # 更新数据集元数据
         report = analysis_result.get("report", {})
-        dataset.quality_analysis_report = report
+        dataset.quality_analysis_results = report
         dataset.processing_status = "quality_completed"
         dataset_service.repository.save(dataset)
 
@@ -422,6 +427,7 @@ async def analyze_enhanced_tool(dataset_id: str) -> str:
 
     try:
         from ...core.dataset_service_factory import create_dataset_service
+        from pathlib import Path
         import json
 
         dataset_service = create_dataset_service()
@@ -443,9 +449,20 @@ async def analyze_enhanced_tool(dataset_id: str) -> str:
             business_data_types_str = ""
             if hasattr(dataset, 'business_data_types') and dataset.business_data_types:
                 if isinstance(dataset.business_data_types, list):
-                    business_data_types_str = ", ".join(dataset.business_data_types)
+                    # 处理列表，可能是字符串列表或字典列表
+                    str_list = []
+                    for item in dataset.business_data_types:
+                        if isinstance(item, str):
+                            str_list.append(item)
+                        elif isinstance(item, dict):
+                            str_list.append(item.get('name', item.get('primary', str(item))))
+                        else:
+                            str_list.append(str(item))
+                    business_data_types_str = ", ".join(str_list)
                 elif isinstance(dataset.business_data_types, dict):
                     business_data_types_str = dataset.business_data_types.get('primary', '未知')
+                else:
+                    business_data_types_str = str(dataset.business_data_types)
 
             # 构建重要列描述
             important_columns = ""
@@ -538,9 +555,20 @@ async def analyze_enhanced_tool(dataset_id: str) -> str:
             business_data_types_str = ""
             if hasattr(dataset, 'business_data_types') and dataset.business_data_types:
                 if isinstance(dataset.business_data_types, list):
-                    business_data_types_str = ", ".join(dataset.business_data_types)
+                    # 处理列表，可能是字符串列表或字典列表
+                    str_list = []
+                    for item in dataset.business_data_types:
+                        if isinstance(item, str):
+                            str_list.append(item)
+                        elif isinstance(item, dict):
+                            str_list.append(item.get('name', item.get('primary', str(item))))
+                        else:
+                            str_list.append(str(item))
+                    business_data_types_str = ", ".join(str_list)
                 elif isinstance(dataset.business_data_types, dict):
                     business_data_types_str = dataset.business_data_types.get('primary', '未知')
+                else:
+                    business_data_types_str = str(dataset.business_data_types)
 
             # 构建重要列描述
             important_columns = ""
@@ -565,15 +593,17 @@ async def analyze_enhanced_tool(dataset_id: str) -> str:
             logger.info(f"[Agent Tool] 增强分析完成: {dataset_id}")
             return json.dumps({
                 "dataset_id": dataset_id,
-                "status": result.get("status"),
+                "status": "completed",
                 "industrial_domain": industrial_domain,
                 "business_data_types": business_data_types_str,
                 "important_columns": important_columns,
             }, ensure_ascii=False)
 
+        # 如果没有工业领域信息，返回基础结果
+        logger.info(f"[Agent Tool] 增强分析完成: {dataset_id}")
         return json.dumps({
             "dataset_id": dataset_id,
-            "status": result.get("status"),
+            "status": analysis_result.get("status", "completed"),
             "message": "增强分析已完成"
         }, ensure_ascii=False)
 
@@ -616,22 +646,29 @@ async def emit_progress_tool(
 
     import json
 
-    # TODO: 实现 WebSocket 或 SSE 推送
-    # 这里暂时使用日志记录，后续会实现实际的进度推送
-    progress_event = {
-        "type": "analysis_progress",
-        "dataset_id": dataset_id,
-        "current_step": current_step,
-        "progress": progress,
-        "steps_completed": steps_completed,
-        "steps_remaining": steps_remaining or "无",
-        "intermediate_result": intermediate_result or "{}"
-    }
+    # 连接到 ProgressEventBus
+    from src.core.progress_event_bus import get_progress_event_bus, ProgressEvent
 
-    logger.info(f"[Progress Event] {progress_event}")
+    event_bus = get_progress_event_bus()
+
+    # 创建进度事件
+    progress_event = ProgressEvent(
+        dataset_id=dataset_id,
+        current_step=current_step,
+        progress=progress,
+        steps_completed=steps_completed,
+        steps_remaining=steps_remaining,
+        intermediate_result=intermediate_result,
+        event_type="analysis_progress"
+    )
+
+    # 发布到事件总线
+    await event_bus.publish(progress_event)
+
+    logger.info(f"[Progress Event] 已发布到事件总线: {dataset_id} - {current_step} ({progress}%)")
 
     return json.dumps({
-        "status": "progress_sent",
+        "status": "progress_published",
         "dataset_id": dataset_id,
         "event_summary": f"步骤: {current_step}, 进度: {progress}%"
     }, ensure_ascii=False)

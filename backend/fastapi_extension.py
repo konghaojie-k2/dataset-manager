@@ -10,20 +10,34 @@ FastAPI Extension - Port 8000 统一入口
 - WebSocket/SSE 流式进度推送
 """
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pathlib import Path
 from loguru import logger
 from typing import Optional
+from pydantic import BaseModel
 import asyncio
 import json
+from datetime import datetime
 
 from src.config.settings import get_settings, setup_logging
 from src.core.dataset_service_factory import create_dataset_service
 from src.server.dependencies import set_dataset_service, set_tag_service
 from src.core.tag_service import TagService
+
+
+# ===== 请求模型定义 =====
+
+class AgentAnalysisRequest(BaseModel):
+    """Agent 分析请求"""
+    dataset_id: str
+
+
+class QueryAgentRequest(BaseModel):
+    """Query Agent 查询请求"""
+    query: str
 
 config = get_settings()
 
@@ -109,7 +123,7 @@ def create_extension_app() -> FastAPI:
 
     @app.post("/api/agents/data_processing_agent/analyze")
     async def trigger_data_processing_agent(
-        dataset_id: str,
+        request: AgentAnalysisRequest,
         background_tasks: BackgroundTasks
     ):
         """
@@ -119,6 +133,8 @@ def create_extension_app() -> FastAPI:
         """
         from src.agents.data_processing import analyze_dataset
 
+        dataset_id = request.dataset_id
+
         # 后台执行分析
         async def run_analysis():
             try:
@@ -126,18 +142,20 @@ def create_extension_app() -> FastAPI:
                 await analyze_dataset(dataset_id)
                 logger.info(f"Data Processing Agent 分析完成: {dataset_id}")
             except Exception as e:
-                logger.error(f"Data Processing Agent 分析失败: {e}")
+                logger.error(f"Data Processing Agent 分析失败: {dataset_id} - {e}")
+                import traceback
+                traceback.print_exc()
 
         background_tasks.add_task(run_analysis)
 
         return {
             "status": "triggered",
             "dataset_id": dataset_id,
-            "message": "Agent 分析已启动，请通过 WebSocket 订阅进度"
+            "message": "Agent 分析已启动，请通过 SSE 订阅进度"
         }
 
     @app.post("/api/agents/query_agent/query")
-    async def trigger_query_agent(query: str):
+    async def trigger_query_agent(request: QueryAgentRequest):
         """
         触发 Query Agent 进行数据查询
 
@@ -145,13 +163,12 @@ def create_extension_app() -> FastAPI:
         """
         from src.agents.query import query_datasets
 
-        result = await query_datasets(query)
+        result = await query_datasets(request.query)
         return result
 
     # ===== WebSocket/SSE 进度推送端点 =====
 
-    # 内存存储进度订阅
-    progress_subscribers = {}
+    from src.core.progress_event_bus import get_progress_event_bus
 
     @app.get("/api/analysis/{dataset_id}/progress")
     async def get_analysis_progress(dataset_id: str):
@@ -159,35 +176,65 @@ def create_extension_app() -> FastAPI:
         获取分析进度的 SSE 端点
 
         前端可以通过 EventSource 订阅此端点以获取实时进度更新。
+        支持心跳机制保持连接活跃。
         """
+        event_bus = get_progress_event_bus()
 
         async def progress_stream():
             """SSE 进度流"""
+            queue = None
             try:
+                # 订阅事件总线
+                queue = await event_bus.subscribe(dataset_id)
+
                 # 发送初始连接消息
-                yield f"event: connected\ndata: {{'dataset_id': '{dataset_id}'}}\n\n"
+                yield f"event: connected\ndata: {json.dumps({'dataset_id': dataset_id, 'timestamp': datetime.now().isoformat()})}\n\n"
 
-                # 模拟进度更新（实际应该从 Agent 接收）
-                for i in range(0, 101, 10):
-                    await asyncio.sleep(1)
-                    progress_data = {
-                        "type": "analysis_progress",
-                        "dataset_id": dataset_id,
-                        "current_step": f"分析步骤 {i//25 + 1}",
-                        "progress": i,
-                        "steps_completed": [f"步骤 {j}" for j in range(i // 25)] if i > 0 else [],
-                        "steps_remaining": [f"步骤 {j}" for j in range((i // 25) + 1, 5)]
-                    }
-                    yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
+                last_event_time = datetime.now()
+                heartbeat_count = 0
 
-                # 发送完成消息
-                yield f"event: complete\ndata: {{'dataset_id': '{dataset_id}', 'status': 'completed'}}\n\n"
+                # 迭代事件
+                while True:
+                    try:
+                        # 等待事件，带较短的超时以便定期发送心跳
+                        event = await asyncio.wait_for(queue.get(), timeout=2.0)
+
+                        last_event_time = datetime.now()
+                        yield f"event: progress\ndata: {json.dumps(event.to_dict(), ensure_ascii=False)}\n\n"
+
+                        # 如果进度达到100%，发送完成事件
+                        if event.progress >= 100:
+                            yield f"event: complete\ndata: {json.dumps({'dataset_id': dataset_id, 'status': 'completed', 'timestamp': datetime.now().isoformat()}, ensure_ascii=False)}\n\n"
+                            break
+
+                    except asyncio.TimeoutError:
+                        # 定期发送心跳保持连接
+                        now = datetime.now()
+                        elapsed = (now - last_event_time).total_seconds()
+
+                        # 如果超过3秒没有事件，发送心跳
+                        if elapsed >= 3:
+                            heartbeat_count += 1
+                            heartbeat_data = {
+                                'type': 'heartbeat',
+                                'dataset_id': dataset_id,
+                                'heartbeat_count': heartbeat_count,
+                                'timestamp': now.isoformat(),
+                                'elapsed_seconds': elapsed
+                            }
+                            yield f"event: heartbeat\ndata: {json.dumps(heartbeat_data, ensure_ascii=False)}\n\n"
+                            last_event_time = now
 
             except asyncio.CancelledError:
-                logger.info(f"进度流被取消: {dataset_id}")
+                logger.info(f"[SSE] 进度流被取消: {dataset_id}")
             except Exception as e:
-                logger.error(f"进度流错误: {e}")
-                yield f"event: error\ndata: {{'error': '{str(e)}'}}\n\n"
+                logger.error(f"[SSE] 进度流错误: {dataset_id} - {e}")
+                yield f"event: error\ndata: {json.dumps({'error': str(e), 'timestamp': datetime.now().isoformat()}, ensure_ascii=False)}\n\n"
+            finally:
+                # 取消订阅
+                if queue:
+                    await event_bus.unsubscribe(dataset_id, queue)
+                    logger.info(f"[SSE] 已取消订阅: {dataset_id}")
 
         return StreamingResponse(
             progress_stream(),
@@ -195,6 +242,7 @@ def create_extension_app() -> FastAPI:
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲
             }
         )
 

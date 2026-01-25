@@ -14,11 +14,13 @@ interface DatasetListProps {
   analyzingId: string | null;
   onSelect: (dataset: Dataset) => void;
   refreshTrigger?: number;
+  onDatasetDeleted?: () => void;
 }
 
-export function DatasetList({ datasets, selectedId, analyzingId, onSelect, refreshTrigger }: DatasetListProps) {
+export function DatasetList({ datasets, selectedId, analyzingId, onSelect, refreshTrigger, onDatasetDeleted }: DatasetListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredDatasets, setFilteredDatasets] = useState(datasets);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // 搜索过滤
   useEffect(() => {
@@ -50,6 +52,34 @@ export function DatasetList({ datasets, selectedId, analyzingId, onSelect, refre
     if (status === 'analyzing') return 'bg-blue-100 text-blue-800';
     if (status.includes('completed')) return 'bg-green-100 text-green-800';
     return 'bg-yellow-100 text-yellow-800';
+  };
+
+  // 处理删除数据集
+  const handleDelete = async (datasetId: string, datasetName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // 防止触发选择事件
+
+    if (deletingId) return; // 防止重复点击
+
+    const confirmed = window.confirm(
+      `确定要删除数据集 "${datasetName}" 吗？\n\n此操作将：\n• 删除数据集文件\n• 删除所有分析结果\n• 删除相关的血缘关系\n\n此操作无法撤销！`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingId(datasetId);
+
+    try {
+      await datasetAPI.delete(datasetId);
+      onDatasetDeleted?.();
+      // eslint-disable-next-line no-alert
+      alert('数据集删除成功');
+    } catch (error: any) {
+      console.error('删除失败:', error);
+      // eslint-disable-next-line no-alert
+      alert(`删除失败: ${error.message || error}`);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -90,12 +120,30 @@ export function DatasetList({ datasets, selectedId, analyzingId, onSelect, refre
                   : 'border-gray-200 hover:border-gray-300'
               } ${analyzingId === dataset.id ? 'ring-2 ring-blue-300' : ''}`}
             >
-              {/* 头部：名称和状态 */}
+              {/* 头部：名称、状态和删除按钮 */}
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-gray-900 flex-1">{dataset.name}</h3>
-                <span className={`px-2 py-1 rounded text-xs ${getStatusColor(dataset.processing_status)}`}>
-                  {dataset.processing_status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 rounded text-xs ${getStatusColor(dataset.processing_status)}`}>
+                    {dataset.processing_status}
+                  </span>
+                  <button
+                    onClick={(e) => handleDelete(dataset.id, dataset.name, e)}
+                    disabled={deletingId === dataset.id || analyzingId === dataset.id}
+                    className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="删除数据集"
+                  >
+                    {deletingId === dataset.id ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* 描述 */}

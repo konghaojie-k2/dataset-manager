@@ -36,8 +36,8 @@ export interface AnalysisProgress {
   dataset_id: string;
   current_step: string;
   progress: number;
-  steps_completed: string[];
-  steps_remaining: string[];
+  steps_completed: string | string[];  // 可以是字符串（逗号分隔）或数组
+  steps_remaining: string | string[];
   intermediate_result?: {
     columns_detected: number;
     row_count: number;
@@ -74,7 +74,23 @@ export const datasetAPI = {
     });
 
     if (!response.ok) {
-      throw new Error(`上传失败: ${response.statusText}`);
+      // 尝试从响应体中获取详细错误信息
+      let errorMessage = `上传失败: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (e) {
+        // 如果无法解析 JSON，使用默认错误信息
+        console.warn('无法解析错误响应:', e);
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response.json();
@@ -244,37 +260,136 @@ export const agentAPI = {
 
   /**
    * 订阅分析进度流 (SSE)
+   * 支持心跳检测和自动重连
    * 返回 EventSource
    */
   subscribeProgress: (datasetId: string, onMessage: (data: AnalysisProgress) => void, onComplete?: () => void, onError?: (error: any) => void): EventSource => {
-    const eventSource = new EventSource(`${API_BASE}/api/analysis/${datasetId}/progress`);
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const baseReconnectDelay = 1000;
+    let heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isCompleted = false;
 
-    eventSource.addEventListener('connected', (e: MessageEvent) => {
-      console.log('[SSE] Connected:', e.data);
-    });
+    const createEventSource = () => {
+      const eventSource = new EventSource(`${API_BASE}/api/analysis/${datasetId}/progress`);
 
-    eventSource.addEventListener('progress', (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data);
-        onMessage(data);
-      } catch (err) {
-        console.error('[SSE] Parse error:', err);
+      // 连接成功
+      eventSource.addEventListener('connected', (e: MessageEvent) => {
+        console.log('[SSE] Connected:', e.data);
+        reconnectAttempts = 0; // 重置重连计数
+        isCompleted = false;
+      });
+
+      // 心跳事件
+      eventSource.addEventListener('heartbeat', (e: MessageEvent) => {
+        console.debug('[SSE] Heartbeat:', e.data);
+        // 清除之前的心跳超时
+        if (heartbeatTimeout) {
+          clearTimeout(heartbeatTimeout);
+        }
+        // 设置新的心跳超时（如果超过10秒没有心跳则重连）
+        heartbeatTimeout = setTimeout(() => {
+          console.warn('[SSE] No heartbeat for 10s, reconnecting...');
+          eventSource.close();
+          attemptReconnect();
+        }, 10000);
+      });
+
+      // 进度事件
+      eventSource.addEventListener('progress', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+
+          // 转换 steps_completed 和 steps_remaining：如果字符串则分割为数组
+          if (typeof data.steps_completed === 'string') {
+            data.steps_completed = data.steps_completed
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter((s: string) => s && s !== '无');
+          }
+          if (typeof data.steps_remaining === 'string') {
+            data.steps_remaining = data.steps_remaining
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter((s: string) => s && s !== '无');
+          }
+
+          // 解析 intermediate_result（如果是 JSON 字符串）
+          if (typeof data.intermediate_result === 'string') {
+            try {
+              data.intermediate_result = JSON.parse(data.intermediate_result);
+            } catch {
+              data.intermediate_result = undefined;
+            }
+          }
+
+          onMessage(data);
+        } catch (err) {
+          console.error('[SSE] Parse error:', err);
+          onError?.(new Error('Failed to parse progress data'));
+        }
+      });
+
+      // 完成事件
+      eventSource.addEventListener('complete', (e: MessageEvent) => {
+        console.log('[SSE] Complete:', e.data);
+        isCompleted = true;
+        if (heartbeatTimeout) {
+          clearTimeout(heartbeatTimeout);
+        }
+        eventSource.close();
+        onComplete?.();
+      });
+
+      // 自定义 error 事件（后端发送的业务错误）
+      eventSource.addEventListener('error', (e: MessageEvent) => {
+        if (isCompleted) return; // 已完成时不处理
+
+        try {
+          const errorData = JSON.parse(e.data);
+          console.error('[SSE] Business Error:', errorData);
+          onError?.(new Error(errorData.error || 'Unknown error'));
+        } catch {
+          console.error('[SSE] Error:', e.data);
+          onError?.(new Error('Unknown error'));
+        }
+        eventSource.close();
+      });
+
+      // EventSource 内置错误（网络错误、连接断开等）
+      eventSource.onerror = (evt) => {
+        if (isCompleted) return; // 已完成时不处理
+
+        console.error('[SSE] Connection Error:', evt);
+        eventSource.close();
+        attemptReconnect();
+      };
+
+      return eventSource;
+    };
+
+    // 重连逻辑
+    const attemptReconnect = () => {
+      if (isCompleted) return;
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        console.error('[SSE] Max reconnect attempts reached');
+        onError?.(new Error('SSE connection failed after max attempts'));
+        return;
       }
-    });
 
-    eventSource.addEventListener('complete', (e: MessageEvent) => {
-      console.log('[SSE] Complete:', e.data);
-      eventSource.close();
-      onComplete?.();
-    });
+      reconnectAttempts++;
+      const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts - 1); // 指数退避
+      console.log(`[SSE] Attempting reconnect ${reconnectAttempts}/${maxReconnectAttempts} in ${delay}ms...`);
 
-    eventSource.addEventListener('error', (e: MessageEvent) => {
-      console.error('[SSE] Error:', e);
-      onError?.(e);
-      eventSource.close();
-    });
+      setTimeout(() => {
+        if (!isCompleted) {
+          createEventSource();
+        }
+      }, delay);
+    };
 
-    return eventSource;
+    // 创建 EventSource
+    return createEventSource();
   },
 };
 

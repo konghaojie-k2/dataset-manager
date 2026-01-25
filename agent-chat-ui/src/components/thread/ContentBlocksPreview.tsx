@@ -20,7 +20,7 @@ export const ContentBlocksPreview: React.FC<ContentBlocksPreviewProps> = ({
   size = "md",
   className,
 }) => {
-  if (!blocks.length) return null;
+  if (!blocks || !blocks.length) return null;
   return (
     <div className={cn("flex flex-wrap gap-2 p-3.5 pb-0", className)}>
       {blocks.map((block, idx) => (

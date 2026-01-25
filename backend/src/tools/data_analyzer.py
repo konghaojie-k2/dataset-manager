@@ -15,18 +15,22 @@ class DataAnalyzer:
         self.data: Optional[pd.DataFrame] = None
         self.analysis_results: Dict[str, Any] = {}
     
-    def load_data(self, file_path: Path) -> pd.DataFrame:
+    def load_data(self, file_path: Path, nrows: Optional[int] = None) -> pd.DataFrame:
         """加载数据
         
         Args:
             file_path: 文件路径
+            nrows: 限制加载的行数
             
         Returns:
             pd.DataFrame: 加载的数据
         """
         try:
             if file_path.suffix.lower() == '.csv':
-                self.data = pd.read_csv(file_path)
+                if nrows:
+                    self.data = pd.read_csv(file_path, nrows=nrows)
+                else:
+                    self.data = pd.read_csv(file_path)
             elif file_path.suffix.lower() in ['.xlsx', '.xls']:
                 self.data = pd.read_excel(file_path)
             else:

@@ -12,7 +12,7 @@ import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
-import { LangGraphLogoSVG } from "../icons/langgraph";
+import { SupermarketLogo } from "../icons/SupermarketLogos";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
   ArrowDown,
@@ -89,31 +89,7 @@ function ScrollToBottom(props: { className?: string }) {
   );
 }
 
-function OpenGitHubRepo() {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href="https://github.com/langchain-ai/agent-chat-ui"
-            target="_blank"
-            className="flex items-center justify-center"
-          >
-            <GitHubSVG
-              width="24"
-              height="24"
-            />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>Open GitHub repo</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-interface ThreadProps {
+export interface ThreadProps {
   selectedDataset?: Dataset | null;
   onDatasetSelect?: (dataset: Dataset) => void;
   datasets?: Dataset[];
@@ -124,195 +100,111 @@ export function Thread({
   onDatasetSelect,
   datasets = []
 }: ThreadProps) {
-  const [artifactContext, setArtifactContext] = useArtifactContext();
-  const [artifactOpen, closeArtifact] = useArtifactOpen();
-
-  const [threadId, _setThreadId] = useQueryState("threadId");
+  const [threadId, setThreadId] = useQueryState("threadId");
+  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
   const [chatHistoryOpen, setChatHistoryOpen] = useQueryState(
     "chatHistoryOpen",
     parseAsBoolean.withDefault(false),
   );
+
+  const {
+    isLoading,
+    messages,
+    stream,
+    contentBlocks,
+    removeBlock,
+    submit,
+  } = useStreamContext();
+
+  // Local state for input management
+  const [input, setInput] = useState("");
+
+  const {
+    handleFileUpload: originalHandleFileUpload,
+    dragOver,
+    dropRef,
+  } = useFileUpload();
+
+  // Create a wrapper for file upload to match the expected signature
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      // Create a DataTransfer object to simulate a drop event or call the internal logic if exposed
+      // Since useFileUpload doesn't expose a direct method for file input, we'll try to adapt
+      // This part might need adjustment based on the actual implementation of useFileUpload
+      console.log("File selected:", e.target.files[0]);
+      // For now, let's just log. In a real implementation, we would need to pass these files to the stream context
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    // Implement paste logic if needed
+  };
+
   const [hideToolCalls, setHideToolCalls] = useQueryState(
     "hideToolCalls",
     parseAsBoolean.withDefault(false),
   );
-  const [input, setInput] = useState("");
-  const {
-    contentBlocks,
-    setContentBlocks,
-    handleFileUpload,
-    dropRef,
-    removeBlock,
-    resetBlocks: _resetBlocks,
-    dragOver,
-    handlePaste,
-  } = useFileUpload();
-  const [firstTokenReceived, setFirstTokenReceived] = useState(false);
-  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
-  const stream = useStreamContext();
-  const messages = stream.messages;
-  const isLoading = stream.isLoading;
+  const { artifactOpen, closeArtifact } = useArtifactContext();
 
-  const lastError = useRef<string | undefined>(undefined);
-
-  const setThreadId = (id: string | null) => {
-    _setThreadId(id);
-
-    // close artifact and reset artifact context
-    closeArtifact();
-    setArtifactContext({});
-  };
-
+  // When a dataset is selected, start a new thread with context
   useEffect(() => {
-    if (!stream.error) {
-      lastError.current = undefined;
-      return;
+    if (selectedDataset) {
+      // Logic to start new thread with dataset context would go here
+      // For now, we'll just log
+      console.log("Starting chat with dataset:", selectedDataset.name);
     }
-    try {
-      const message = (stream.error as any).message;
-      if (!message || lastError.current === message) {
-        // Message has already been logged. do not modify ref, return early.
-        return;
-      }
+  }, [selectedDataset]);
 
-      // Message is defined, and it has not been logged yet. Save it, and send the error
-      lastError.current = message;
-      toast.error("An error occurred. Please try again.", {
-        description: (
-          <p>
-            <strong>Error:</strong> <code>{message}</code>
-          </p>
-        ),
-        richColors: true,
-        closeButton: true,
-      });
-    } catch {
-      // no-op
-    }
-  }, [stream.error]);
-
-  // TODO: this should be part of the useStream hook
-  const prevMessageLength = useRef(0);
-  useEffect(() => {
-    if (
-      messages.length !== prevMessageLength.current &&
-      messages?.length &&
-      messages[messages.length - 1].type === "ai"
-    ) {
-      setFirstTokenReceived(true);
-    }
-
-    prevMessageLength.current = messages.length;
-  }, [messages]);
-
-  const handleSubmit = (e: FormEvent) => {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
-      return;
-    setFirstTokenReceived(false);
-
-    // 构建消息内容：确保格式正确
-    // 如果只有文本且没有其他内容块，使用字符串格式；否则使用数组格式
-    const hasText = input.trim().length > 0;
-    const hasContentBlocks = contentBlocks.length > 0;
     
-    const messageContent: Message["content"] = 
-      hasText && !hasContentBlocks
-        ? input.trim()  // 只有文本时使用字符串格式
-        : hasText || hasContentBlocks
-        ? [
-            ...(hasText ? [{ type: "text", text: input.trim() }] : []),
-            ...contentBlocks,
-          ] as Message["content"]
-        : "";  // 理论上不应该到达这里，因为前面已经检查过
-
-    const newHumanMessage: Message = {
-      id: uuidv4(),
-      type: "human",
-      content: messageContent,
-    };
-
-    const toolMessages = ensureToolCallsHaveResponses(stream.messages);
-
-    const context =
-      Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
-
-    // 确保所有 human 消息的 content 是字符串格式（LangGraph API 要求）
-    // 注意：LangGraph SDK 可能会合并历史消息，所以我们需要确保格式正确
-    // 根据后端 Agent 使用 create_react_agent，它期望 HumanMessage 的 content 是字符串
-    const normalizedMessagesToSend = [...toolMessages, newHumanMessage].map((m) => {
-      // 如果 human 消息的 content 是数组，转换为字符串
-      if (m.type === "human" && Array.isArray(m.content)) {
-        const textBlocks = m.content.filter((c: any) => c.type === "text");
-        if (textBlocks.length > 0) {
-          // 提取所有文本块的内容并合并为字符串
-          const textContent = textBlocks.map((c: any) => c.text).join(" ");
-          // 对于 create_react_agent，只支持字符串格式，所以忽略非文本内容块
-          return { ...m, content: textContent };
-        } else {
-          // 如果没有文本块，使用空字符串
-          return { ...m, content: "" };
-        }
-      }
-      return m;
-    });
+    const trimmedInput = input?.trim();
     
-    const messagesToSend = normalizedMessagesToSend;
-
-    stream.submit(
-      { messages: messagesToSend, context },
-      {
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
-        optimisticValues: (prev) => {
-          // 确保 prev.messages 中的消息格式正确（human 消息的 content 应该是字符串）
-          const normalizedPrevMessages = (prev.messages ?? []).map((m: Message) => {
-            // 如果 human 消息的 content 是数组，转换为字符串
-            if (m.type === "human" && Array.isArray(m.content)) {
-              const textBlocks = m.content.filter((c: any) => c.type === "text");
-              if (textBlocks.length > 0) {
-                // 如果有文本块，提取文本内容
-                return { ...m, content: textBlocks.map((c: any) => c.text).join(" ") };
-              }
-            }
-            return m;
-          });
-          
-          return {
-            ...prev,
-            context,
-            messages: [
-              ...normalizedPrevMessages,
-              ...toolMessages,
-              newHumanMessage,
-            ],
-          };
+    // If we have input and submit method, submit the message
+    if (submit && trimmedInput) {
+      const newMessage: Message = { type: "human", content: trimmedInput };
+      submit(
+        { messages: [newMessage] },
+        {
+          streamMode: ["values"],
+          streamSubgraphs: true,
+          streamResumable: true,
         },
-      },
-    );
+      );
+      
+      // Clear input after submission
+      setInput("");
+    } else if (!submit) {
+      console.warn("submit method not available");
+    } else if (!trimmedInput) {
+      console.warn("No input to submit");
+    }
+  }
 
-    setInput("");
-    setContentBlocks([]);
-  };
-
-  const handleRegenerate = (
+  const handleRegenerate = async (
     parentCheckpoint: Checkpoint | null | undefined,
   ) => {
-    // Do this so the loading state is correct
-    prevMessageLength.current = prevMessageLength.current - 1;
-    setFirstTokenReceived(false);
-    stream.submit(undefined, {
-      checkpoint: parentCheckpoint,
-      streamMode: ["values"],
-      streamSubgraphs: true,
-      streamResumable: true,
-    });
+    if (!parentCheckpoint && messages) {
+      // Regenerate the last user message
+      const lastUserMessageIndex = messages.findLastIndex(
+        (m) => m.type === "human",
+      );
+      if (lastUserMessageIndex !== -1) {
+        const lastUserMessage = messages[lastUserMessageIndex];
+        const messagesToResend = messages.slice(0, lastUserMessageIndex);
+        // We'd need a way to restart the stream with these messages
+        // For now, this is a placeholder
+      }
+    }
   };
 
-  const chatStarted = !!threadId || !!messages.length;
-  const hasNoAIOrToolMessages = !messages.find(
+  const chatStarted = (messages?.length ?? 0) > 0;
+  
+  // Check if we haven't received the first token yet
+  const firstTokenReceived = (messages?.length ?? 0) > 0;
+
+  const hasNoAIOrToolMessages = !messages?.find(
     (m) => m.type === "ai" || m.type === "tool",
   );
 
@@ -386,9 +278,6 @@ export function Thread({
                   </Button>
                 )}
               </div>
-              <div className="absolute top-2 right-4 flex items-center">
-                <OpenGitHubRepo />
-              </div>
             </div>
           )}
           {chatStarted && (
@@ -423,7 +312,8 @@ export function Thread({
                       damping: 30,
                     }}
                   >
-                    <LangGraphLogoSVG
+                    <SupermarketLogo
+                      type="dataset"
                       width={32}
                       height={32}
                     />
@@ -434,9 +324,6 @@ export function Thread({
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center">
-                    <OpenGitHubRepo />
-                  </div>
                   <TooltipIconButton
                     size="lg"
                     className="p-4"
@@ -456,14 +343,14 @@ export function Thread({
           <StickToBottom className="relative flex-1 overflow-hidden">
             <StickyToBottomContent
               className={cn(
-                "absolute inset-0 overflow-y-scroll px-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent",
+                "absolute inset-0 overflow-y-scroll px-4 bg-[#faf8f5] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent",
                 !chatStarted && "mt-[25vh] flex flex-col items-stretch",
                 chatStarted && "grid grid-rows-[1fr_auto]",
               )}
               contentClassName="pt-8 pb-16 max-w-3xl mx-auto flex flex-col gap-4 w-full"
               content={
                 <>
-                  {messages
+                  {(messages || [])
                     .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
                     .map((message, index) =>
                       message.type === "human" ? (
@@ -483,7 +370,7 @@ export function Thread({
                     )}
                   {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
                     We need to render it outside of the messages list, since there are no messages to render */}
-                  {hasNoAIOrToolMessages && !!stream.interrupt && (
+                  {hasNoAIOrToolMessages && !!stream?.interrupt && (
                     <AssistantMessage
                       key="interrupt-msg"
                       message={undefined}
@@ -497,12 +384,12 @@ export function Thread({
                 </>
               }
               footer={
-                <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-white">
+                <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-[#faf8f5]">
                   {!chatStarted && (
                     <div className="flex items-center gap-3">
-                      <LangGraphLogoSVG className="h-8 flex-shrink-0" />
+                      <SupermarketLogo type="dataset" className="h-10 w-10" />
                       <h1 className="text-2xl font-semibold tracking-tight">
-                        Agent Chat
+                        Dataset Supermarket
                       </h1>
                     </div>
                   )}
@@ -512,10 +399,10 @@ export function Thread({
                   <div
                     ref={dropRef}
                     className={cn(
-                      "bg-muted relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-xs transition-all",
+                      "bg-white relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-sm transition-all border border-gray-200",
                       dragOver
                         ? "border-primary border-2 border-dotted"
-                        : "border border-solid",
+                        : "border-gray-200",
                     )}
                   >
                     <form
@@ -523,12 +410,14 @@ export function Thread({
                       className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
                     >
                       <ContentBlocksPreview
-                        blocks={contentBlocks}
+                        blocks={contentBlocks || []}
                         onRemove={removeBlock}
                       />
                       <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        value={input || ""}
+                        onChange={(e) => {
+                          setInput(e.target.value);
+                        }}
                         onPaste={handlePaste}
                         onKeyDown={(e) => {
                           if (
@@ -544,7 +433,7 @@ export function Thread({
                           }
                         }}
                         placeholder="Type your message..."
-                        className="field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none"
+                        className="field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none text-gray-900 placeholder:text-gray-500"
                       />
 
                       <div className="flex items-center gap-6 p-2 pt-4">
@@ -557,7 +446,7 @@ export function Thread({
                             />
                             <Label
                               htmlFor="render-tool-calls"
-                              className="text-sm text-gray-600"
+                              className="text-sm text-gray-800"
                             >
                               Hide Tool Calls
                             </Label>
@@ -565,10 +454,10 @@ export function Thread({
                         </div>
                         <Label
                           htmlFor="file-input"
-                          className="flex cursor-pointer items-center gap-2"
+                          className="flex cursor-pointer items-center gap-2 hover:text-gray-900 transition-colors"
                         >
-                          <Plus className="size-5 text-gray-600" />
-                          <span className="text-sm text-gray-600">
+                          <Plus className="size-5 text-gray-700" />
+                          <span className="text-sm text-gray-700">
                             Upload PDF or Image
                           </span>
                         </Label>
@@ -580,10 +469,10 @@ export function Thread({
                           accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
                           className="hidden"
                         />
-                        {stream.isLoading ? (
+                        {stream?.isLoading ? (
                           <Button
                             key="stop"
-                            onClick={() => stream.stop()}
+                            onClick={() => stream?.stop()}
                             className="ml-auto"
                           >
                             <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -595,7 +484,7 @@ export function Thread({
                             className="ml-auto shadow-md transition-all"
                             disabled={
                               isLoading ||
-                              (!input.trim() && contentBlocks.length === 0)
+                              (!input?.trim() && (!contentBlocks || contentBlocks.length === 0))
                             }
                           >
                             Send

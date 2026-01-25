@@ -6,6 +6,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { type Dataset } from '@/lib/api-extension';
+import { datasetAPI } from '@/lib/api-extension';
 import { DatasetCard } from './DatasetCard';
 import { DatasetFilters } from './DatasetFilters';
 
@@ -13,9 +14,11 @@ interface DatasetBrowseTabProps {
   datasets: Dataset[];
   onDatasetSelect: (dataset: Dataset) => void;
   refreshTrigger: number;
+  onDatasetDeleted?: () => void;
+  analyzingId?: string | null;
 }
 
-export function DatasetBrowseTab({ datasets, onDatasetSelect, refreshTrigger }: DatasetBrowseTabProps) {
+export function DatasetBrowseTab({ datasets, onDatasetSelect, refreshTrigger, onDatasetDeleted, analyzingId }: DatasetBrowseTabProps) {
   const [filteredDatasets, setFilteredDatasets] = useState<Dataset[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
@@ -63,6 +66,20 @@ export function DatasetBrowseTab({ datasets, onDatasetSelect, refreshTrigger }: 
   const handleDatasetClick = useCallback((dataset: Dataset) => {
     onDatasetSelect(dataset);
   }, [onDatasetSelect]);
+
+  // Handle dataset delete
+  const handleDelete = useCallback(async (datasetId: string) => {
+    try {
+      await datasetAPI.delete(datasetId);
+      onDatasetDeleted?.();
+      // eslint-disable-next-line no-alert
+      alert('数据集删除成功');
+    } catch (error: any) {
+      console.error('删除失败:', error);
+      // eslint-disable-next-line no-alert
+      alert(`删除失败: ${error.message || error}`);
+    }
+  }, [onDatasetDeleted]);
 
   return (
     <div className="flex gap-8">
@@ -114,6 +131,8 @@ export function DatasetBrowseTab({ datasets, onDatasetSelect, refreshTrigger }: 
                 key={dataset.id}
                 dataset={dataset}
                 onClick={() => handleDatasetClick(dataset)}
+                onDelete={handleDelete}
+                analyzing={analyzingId === dataset.id}
               />
             ))}
           </div>

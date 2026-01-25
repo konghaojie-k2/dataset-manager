@@ -66,7 +66,7 @@ async def list_datasets(
         List[DatasetMetadata]: 数据集列表
     """
     try:
-        datasets = service.list_datasets()
+        datasets = await service.list_datasets()
         return datasets
         
     except Exception as e:

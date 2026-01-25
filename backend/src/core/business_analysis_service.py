@@ -324,19 +324,23 @@ class BusinessAnalysisService:
             column_types = self.quality_analyzer.auto_detect_column_types()
             self.quality_analyzer.set_column_types(column_types)
             
-            # 执行质量分析
-            report = self.quality_analyzer.analyze_quality()
-            
             # 生成质量报告
+            report = self.quality_analyzer.generate_quality_report(dataset_id, f"{dataset_id}_quality")
+            
+            # 提取质量报告信息
             quality_report = {
-                "overall_score": report.get("overall_score", 0),
-                "quality_level": report.get("quality_level", "unknown"),
-                "completeness": report.get("completeness", {}).get("overall_score", 0),
-                "accuracy": report.get("accuracy", {}).get("overall_score", 0),
-                "consistency": report.get("consistency", {}).get("overall_score", 0),
-                "timeliness": report.get("timeliness", {}).get("overall_score", 0),
-                "key_issues": report.get("key_issues", []),
-                "recommendations": report.get("recommendations", [])
+                "overall_score": report.overall_score,
+                "quality_level": report.quality_level.value if hasattr(report.quality_level, 'value') else str(report.quality_level),
+                "completeness": 0,  # DataQualityReport 不包含这些字段，保留为0以保持兼容性
+                "accuracy": 0,
+                "consistency": 0,
+                "timeliness": 0,
+                "key_issues": report.key_issues if hasattr(report, 'key_issues') else [],
+                "recommendations": report.recommendations if hasattr(report, 'recommendations') else [],
+                "summary": report.summary if hasattr(report, 'summary') else {},
+                "time_columns": [col.dict() if hasattr(col, 'dict') else str(col) for col in report.time_columns] if hasattr(report, 'time_columns') else [],
+                "parameter_columns": [col.dict() if hasattr(col, 'dict') else str(col) for col in report.parameter_columns] if hasattr(report, 'parameter_columns') else [],
+                "category_columns": [col.dict() if hasattr(col, 'dict') else str(col) for col in report.category_columns] if hasattr(report, 'category_columns') else []
             }
             
             logger.info(f"质量分析完成: {dataset_id}")

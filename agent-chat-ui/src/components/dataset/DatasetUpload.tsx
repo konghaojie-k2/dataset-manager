@@ -69,9 +69,50 @@ export function DatasetUpload({ onUploadComplete, onAnalysisStart }: DatasetUplo
       setFile(null);
       setUserInput('');
       setProgress(0);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload failed:', error);
-      alert(`上传失败: ${error}`);
+
+      // 解析错误信息并提供友好的提示
+      let errorMessage = '上传失败';
+
+      if (error.message) {
+        const errorStr = error.message.toLowerCase();
+
+        // 检测重复数据集错误
+        if (errorStr.includes('重复数据') || errorStr.includes('duplicate')) {
+          // 提取数据集ID
+          const idMatch = error.message.match(/ID: ([a-f0-9-]+)/i);
+          const datasetId = idMatch ? idMatch[1] : '';
+
+          errorMessage = `⚠️ 数据集已存在\n\n` +
+            `该文件与现有数据集完全相同，系统已拒绝重复上传。\n\n` +
+            `现有数据集ID: ${datasetId}\n\n` +
+            `解决方案：\n` +
+            `1. 上传不同的文件\n` +
+            `2. 或删除现有数据集后重新上传\n` +
+            `3. 或联系管理员修改重复检测策略`;
+        }
+        // 检测文件大小错误
+        else if (errorStr.includes('file too large') || errorStr.includes('文件过大')) {
+          errorMessage = `⚠️ 文件过大\n\n` +
+            `上传的文件超过了系统限制（最大100MB）。\n\n` +
+            `请压缩文件或联系管理员增加文件大小限制。`;
+        }
+        // 检测文件格式错误
+        else if (errorStr.includes('invalid file') || errorStr.includes('文件格式')) {
+          errorMessage = `⚠️ 文件格式不支持\n\n` +
+            `系统仅支持 CSV 和 ZIP 格式的文件。\n\n` +
+            `请检查文件格式后重试。`;
+        }
+        // 其他错误
+        else {
+          errorMessage = `上传失败: ${error.message}`;
+        }
+      } else {
+        errorMessage = `上传失败: 未知错误`;
+      }
+
+      alert(errorMessage);
     } finally {
       setUploading(false);
     }
