@@ -8,30 +8,28 @@ from ....schemas.data_quality import (
     QualityAnalysisRequest, QualityAnalysisResponse, DataQualityReport,
     ColumnType
 )
-from ....graph.data_quality_workflow import DataQualityWorkflow
-from ....llms.deepseek import DeepSeekLLM
-from ....config.settings import get_settings
+from ....core.business_analysis_service import BusinessAnalysisService
+from ....core.dataset_service_factory import create_dataset_service
+from pathlib import Path
 
 router = APIRouter(prefix="/data-quality", tags=["数据质量"])
 
-# 全局工作流实例
-_workflow_instance = None
+# 全局业务分析服务实例
+_business_service = None
 
 
-def get_data_quality_workflow() -> DataQualityWorkflow:
-    """获取数据质量分析工作流实例"""
-    global _workflow_instance
-    if _workflow_instance is None:
-        settings = get_settings()
-        llm = DeepSeekLLM(api_key=settings.deepseek_api_key)
-        _workflow_instance = DataQualityWorkflow(llm)
-    return _workflow_instance
+def get_business_service() -> BusinessAnalysisService:
+    """获取业务分析服务实例"""
+    global _business_service
+    if _business_service is None:
+        _business_service = BusinessAnalysisService()
+    return _business_service
 
 
 @router.post("/analyze", response_model=QualityAnalysisResponse)
 async def analyze_data_quality(
     request: QualityAnalysisRequest,
-    workflow: DataQualityWorkflow = Depends(get_data_quality_workflow)
+    business_service: BusinessAnalysisService = Depends(get_business_service)
 ) -> QualityAnalysisResponse:
     """
     分析数据质量
@@ -45,13 +43,57 @@ async def analyze_data_quality(
     try:
         logger.info(f"收到数据质量分析请求: {request.dataset_id}")
         
-        # 运行分析工作流
-        response = await workflow.run_analysis(request)
+        # 获取数据集
+        dataset_service = create_dataset_service()
+        dataset = dataset_service.get_dataset(request.dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail=f"数据集不存在: {request.dataset_id}")
+        
+        # 获取文件路径
+        file_path = Path(dataset.file_path)
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"数据文件不存在: {file_path}")
+        
+        # 运行质量分析
+        analysis_result = await business_service.run_quality_analysis(
+            dataset_id=request.dataset_id,
+            file_path=file_path,
+            user_requirements=request.user_requirements or ""
+        )
+        
+        if analysis_result.get("status") != "completed":
+            raise HTTPException(status_code=500, detail=f"质量分析失败: {analysis_result.get('errors', [])}")
+        
+        # 转换为响应格式
+        report = analysis_result.get("report", {})
+        from ....schemas.data_quality import QualityReport
+        quality_report = QualityReport(
+            overall_score=report.get("overall_score", 0),
+            quality_level=report.get("quality_level", "unknown"),
+            completeness=report.get("completeness", 0),
+            accuracy=report.get("accuracy", 0),
+            consistency=report.get("consistency", 0),
+            timeliness=report.get("timeliness", 0),
+            key_issues=report.get("key_issues", []),
+            recommendations=report.get("recommendations", []),
+            parameter_columns=[],
+            time_series_columns=[]
+        )
+        
+        import uuid
+        response = QualityAnalysisResponse(
+            request_id=str(uuid.uuid4()),
+            dataset_id=request.dataset_id,
+            status="completed",
+            report=quality_report
+        )
         
         logger.info(f"数据质量分析完成: {response.request_id}, 状态: {response.status}")
         
         return response
         
+    except HTTPException:
+        raise
     except Exception as e:
         error_msg = f"数据质量分析失败: {str(e)}"
         logger.error(error_msg)
@@ -62,7 +104,7 @@ async def analyze_data_quality(
 async def analyze_data_quality_async(
     request: QualityAnalysisRequest,
     background_tasks: BackgroundTasks,
-    workflow: DataQualityWorkflow = Depends(get_data_quality_workflow)
+    business_service: BusinessAnalysisService = Depends(get_business_service)
 ) -> Dict[str, str]:
     """
     异步分析数据质量
@@ -80,7 +122,7 @@ async def analyze_data_quality_async(
             _run_async_analysis,
             task_id,
             request,
-            workflow
+            business_service
         )
         
         return {
@@ -97,8 +139,7 @@ async def analyze_data_quality_async(
 
 @router.get("/column-types/{dataset_id}")
 async def detect_column_types(
-    dataset_id: str,
-    workflow: DataQualityWorkflow = Depends(get_data_quality_workflow)
+    dataset_id: str
 ) -> Dict[str, Any]:
     """
     检测数据集的列类型
@@ -186,16 +227,32 @@ async def health_check() -> Dict[str, str]:
 async def _run_async_analysis(
     task_id: str,
     request: QualityAnalysisRequest,
-    workflow: DataQualityWorkflow
+    business_service: BusinessAnalysisService
 ):
     """运行异步分析任务"""
     try:
         logger.info(f"开始执行异步分析任务: {task_id}")
         
-        response = await workflow.run_analysis(request)
+        # 获取数据集
+        dataset_service = create_dataset_service()
+        dataset = dataset_service.get_dataset(request.dataset_id)
+        if not dataset:
+            raise ValueError(f"数据集不存在: {request.dataset_id}")
+        
+        # 获取文件路径
+        file_path = Path(dataset.file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"数据文件不存在: {file_path}")
+        
+        # 运行质量分析
+        analysis_result = await business_service.run_quality_analysis(
+            dataset_id=request.dataset_id,
+            file_path=file_path,
+            user_requirements=request.user_requirements or ""
+        )
         
         # 这里应该将结果保存到数据库或缓存
-        logger.info(f"异步分析任务完成: {task_id}, 状态: {response.status}")
+        logger.info(f"异步分析任务完成: {task_id}, 状态: {analysis_result.get('status')}")
         
         # TODO: 保存结果到数据库
         # TODO: 发送通知给用户

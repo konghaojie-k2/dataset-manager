@@ -18,7 +18,6 @@ from src.config.settings import get_settings, setup_logging
 from src.core.dataset_service_factory import create_dataset_service
 from src.core.tag_service import TagService
 from .routes import router
-# from .mcp_routes import mcp_router  # MCP路由暂未实现
 from .api.v1.reports import router as reports_router
 from .api.v1.tags import router as tags_router
 from .api.v1.version_control import router as version_control_router
@@ -97,7 +96,6 @@ def create_app() -> FastAPI:
 
     # 注册路由
     app.include_router(router)
-    # app.include_router(mcp_router)  # MCP路由暂未实现
     app.include_router(reports_router)
     app.include_router(tags_router)
     app.include_router(version_control_router)

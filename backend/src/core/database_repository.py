@@ -25,10 +25,28 @@ class DatabaseRepository:
             db_path: 数据库文件路径
         """
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # 延迟初始化：只在目录不存在时创建，使用线程池避免阻塞
+        if not self.db_path.parent.exists():
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            _executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(_executor, lambda: self.db_path.parent.mkdir(parents=True, exist_ok=True))
+            except RuntimeError:
+                self.db_path.parent.mkdir(parents=True, exist_ok=True)
         
-        # 初始化数据库
-        self._init_database()
+        # 延迟初始化数据库（使用线程池避免阻塞）
+        try:
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            _executor = ThreadPoolExecutor(max_workers=1)
+            loop = asyncio.get_running_loop()
+            # 在事件循环中，使用线程池执行阻塞操作（不等待完成，避免阻塞）
+            loop.run_in_executor(_executor, self._init_database)
+        except RuntimeError:
+            # 没有运行中的事件循环，直接同步执行（启动时的情况）
+            self._init_database()
         
         logger.info(f"SQLite数据库仓储初始化完成: {self.db_path}")
     
@@ -418,7 +436,7 @@ class DatabaseRepository:
                 return datasets
                 
         except Exception as e:
-            logger.error(f"从数据库列出数据集失败: {e}")
+            logger.error(f"从数据库列出数据集失败: {e}", exc_info=True)
             return []
     
     def delete_dataset(self, dataset_id: str) -> bool:

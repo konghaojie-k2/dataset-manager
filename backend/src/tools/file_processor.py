@@ -26,7 +26,16 @@ class FileProcessor:
         self.allowed_extensions = allowed_extensions or [".csv", ".xlsx", ".xls", ".zip"]
         self.upload_dir = Path(upload_dir) if upload_dir else None
         if self.upload_dir:
-            self.upload_dir.mkdir(parents=True, exist_ok=True)
+            # 延迟初始化：只在目录不存在时创建，使用线程池避免阻塞
+            if not self.upload_dir.exists():
+                import asyncio
+                from concurrent.futures import ThreadPoolExecutor
+                _executor = ThreadPoolExecutor(max_workers=1)
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.run_in_executor(_executor, lambda: self.upload_dir.mkdir(parents=True, exist_ok=True))
+                except RuntimeError:
+                    self.upload_dir.mkdir(parents=True, exist_ok=True)
     
     async def save_uploaded_file(self, file: UploadFile, upload_dir: Path = None) -> Tuple[str, Path]:
         """保存上传的文件
@@ -99,7 +108,16 @@ class FileProcessor:
         elif file_path.suffix.lower() == '.zip':
             # 如果是ZIP文件，提取其中的CSV文件
             extract_dir = file_path.parent / f"{file_path.stem}_extracted"
-            extract_dir.mkdir(exist_ok=True)
+            # 延迟初始化：只在目录不存在时创建，使用线程池避免阻塞
+            if not extract_dir.exists():
+                import asyncio
+                from concurrent.futures import ThreadPoolExecutor
+                _executor = ThreadPoolExecutor(max_workers=1)
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.run_in_executor(_executor, lambda: extract_dir.mkdir(exist_ok=True))
+                except RuntimeError:
+                    extract_dir.mkdir(exist_ok=True)
             
             try:
                 with zipfile.ZipFile(file_path, 'r') as zip_ref:

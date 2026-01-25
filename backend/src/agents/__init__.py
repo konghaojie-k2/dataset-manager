@@ -1,29 +1,10 @@
-"""
-智能代理模块
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Agents 模块"""
 
-参考 DeerFlow 的简洁设计，提供统一的 Agent 创建接口
-"""
+from .data_processing import graph as data_processing_graph
+from .query import graph as query_graph
+from .factory import create_metadata_agent  # 保留旧的工厂函数以兼容现有代码
 
-from .factory import (
-    create_agent,
-    create_metadata_agent,
-    create_analysis_agent,
-    create_insight_agent,
-    create_basic_agent,
-    get_agent,
-    get_available_agents,
-    AGENT_LLM_MAP,
-    AGENT_CREATORS
-)
+__all__ = ["data_processing_graph", "query_graph", "create_metadata_agent"]
 
-__all__ = [
-    "create_agent",
-    "create_metadata_agent",
-    "create_analysis_agent", 
-    "create_insight_agent",
-    "create_basic_agent",
-    "get_agent",
-    "get_available_agents",
-    "AGENT_LLM_MAP",
-    "AGENT_CREATORS"
-] 

@@ -1,11 +1,16 @@
 """配置管理模块"""
 
 import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel, Field
 from loguru import logger
 from dotenv import load_dotenv
+
+# 全局线程池用于执行阻塞操作
+_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mkdir")
 
 # 加载环境变量文件
 load_dotenv()
@@ -30,7 +35,7 @@ class Settings(BaseModel):
     
     # LLM配置
     deepseek_api_key: Optional[str] = Field(default=None, description="DeepSeek API密钥")
-    deepseek_base_url: str = Field(default="https://api.deepseek.com", description="DeepSeek API基础URL")
+    deepseek_base_url: str = Field(default="https://api.deepseek.com/v1", description="DeepSeek API基础URL")
     
     # LLM模型配置
     reasoning_model: str = Field(default="deepseek-chat", description="推理模型")
@@ -149,10 +154,31 @@ def get_settings() -> Settings:
     if storage_max_file_size:
         config.storage_max_file_size = int(storage_max_file_size)
 
-    # 创建必要的目录
-    config.upload_dir.mkdir(parents=True, exist_ok=True)
-    config.metadata_dir.mkdir(parents=True, exist_ok=True)
-    config.logs_dir.mkdir(parents=True, exist_ok=True)
+    # 创建必要的目录（延迟初始化：只在目录不存在时创建，使用线程池避免阻塞）
+    # 检查目录是否存在，如果不存在才创建（避免不必要的阻塞）
+    dirs_to_create = []
+    if not config.upload_dir.exists():
+        dirs_to_create.append(config.upload_dir)
+    if not config.metadata_dir.exists():
+        dirs_to_create.append(config.metadata_dir)
+    if not config.logs_dir.exists():
+        dirs_to_create.append(config.logs_dir)
+    
+    if dirs_to_create:
+        def _mkdir_sync(path: Path):
+            """同步创建目录（在线程池中执行）"""
+            path.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            # 尝试获取事件循环，如果存在则使用线程池执行
+            loop = asyncio.get_running_loop()
+            # 在事件循环中，使用线程池执行阻塞操作（不等待完成，避免阻塞）
+            for dir_path in dirs_to_create:
+                loop.run_in_executor(_executor, _mkdir_sync, dir_path)
+        except RuntimeError:
+            # 没有运行中的事件循环，直接同步执行（启动时的情况）
+            for dir_path in dirs_to_create:
+                _mkdir_sync(dir_path)
     
     logger.info(f"配置加载完成: {config.model_dump()}")
     return config
@@ -164,16 +190,19 @@ def setup_logging(config: Settings):
     Args:
         config: 应用配置
     """
+    import sys
+    
     # 移除默认处理器
     logger.remove()
     
-    # 控制台日志
+    # 控制台日志（使用 sys.stderr 确保输出到控制台）
     log_level = "DEBUG" if config.debug else "INFO"
     logger.add(
-        sink=lambda msg: print(msg, end=""),
+        sink=sys.stderr,
         level=log_level,
         format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-        colorize=True
+        colorize=True,
+        enqueue=True  # 异步写入，避免阻塞
     )
     
     # 文件日志

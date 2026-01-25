@@ -12,6 +12,34 @@ from ..llms.llms import get_reasoning_llm
 from .metadata_discovery import MetadataSchemaDiscovery
 
 
+# ===== 意图分析提示词模板 =====
+
+INTENT_ANALYSIS_TEMPLATE = """请分析用户查询的意图，提取关键信息：
+
+用户查询：{query}
+
+请识别：
+1. **主要意图**：搜索、预览、获取详情、其他
+2. **关键词**：搜索的主要关键词
+3. **过滤条件**：
+   - 标签过滤
+   - 行业过滤
+   - 时间范围
+4. **实体**：提到的具体数据集名称、ID等
+
+返回结构化的意图分析结果。
+"""
+
+
+SEARCH_DATASETS_TEMPLATE = """根据用户的查询意图搜索数据集：
+
+查询：{query}
+意图分析：{intent_analysis}
+
+请执行搜索并返回最相关的数据集。
+"""
+
+
 class IntentAnalysisService:
     """LLM意图分析服务（增强版）"""
 
@@ -275,3 +303,33 @@ class IntentAnalysisService:
             "clarification_message": None,
             "confidence": 0.0
         }
+
+    # ===== 提示词辅助方法 =====
+
+    @staticmethod
+    def get_intent_analysis_prompt(query: str) -> str:
+        """获取意图分析提示词（简化版）
+
+        Args:
+            query: 用户查询
+
+        Returns:
+            str: 格式化的提示词
+        """
+        return INTENT_ANALYSIS_TEMPLATE.format(query=query)
+
+    @staticmethod
+    def get_search_datasets_prompt(query: str, intent_analysis: str = "") -> str:
+        """获取搜索数据集提示词
+
+        Args:
+            query: 用户查询
+            intent_analysis: 意图分析结果（可选）
+
+        Returns:
+            str: 格式化的提示词
+        """
+        return SEARCH_DATASETS_TEMPLATE.format(
+            query=query,
+            intent_analysis=intent_analysis or "未提供"
+        )

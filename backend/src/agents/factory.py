@@ -5,7 +5,7 @@ Agent 工厂模块
 """
 
 from typing import List, Callable, Any
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent as langchain_create_agent
 from langchain_core.tools import BaseTool
 
 from ..llms import get_llm_by_type
@@ -38,17 +38,27 @@ def create_agent(
         prompt_template: 提示词模板
         
     Returns:
-        创建的 React Agent
+        创建的 React Agent (LangGraph graph)
     """
     # 获取对应的 LLM 类型
     llm_type = AGENT_LLM_MAP.get(agent_type, LLMType.BASIC)
+    llm = get_llm_by_type(llm_type)
     
-    # 创建 React Agent
-    return create_react_agent(
-        name=agent_name,
-        model=get_llm_by_type(llm_type),
+    # 应用提示词模板（如果需要动态生成）
+    # 注意：LangChain 1.0+ 的 create_agent 使用 system_prompt 参数，接受字符串
+    # 如果 prompt_template 包含 {state} 占位符，需要先处理
+    if "{state}" in prompt_template:
+        # 对于需要动态提示词的情况，暂时使用固定提示词
+        # 实际应用中可能需要更复杂的处理
+        system_prompt = prompt_template.replace("{state}", "当前对话上下文")
+    else:
+        system_prompt = prompt_template
+    
+    # 使用 LangChain 1.0+ 的 create_agent
+    return langchain_create_agent(
+        model=llm,
         tools=tools,
-        prompt=lambda state: apply_prompt_template(prompt_template, state),
+        system_prompt=system_prompt
     )
 
 

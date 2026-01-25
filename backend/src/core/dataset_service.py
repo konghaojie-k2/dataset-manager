@@ -15,7 +15,6 @@ from ..schemas.dataset import (
 from .dataset_repository import DatasetRepository
 from .file_service import FileService
 from .metadata_service import MetadataService
-from ..graph.workflow import run_industrial_analysis
 from ..tools.report_manager import report_manager
 from ..utils import (
     convert_numpy_types,
@@ -71,7 +70,7 @@ class DatasetService:
             logger.info(f"开始计算文件版本信息: {file_path}")
             
             # 检查是否存在相同数据
-            existing_datasets = self.repository.list_all()
+            existing_datasets = await self.repository.list_all()
             version_info = version_controller.create_version_info(
                 file_path=file_path,
                 parent_dataset=None,  # 暂时不考虑父版本，后续可以根据重复检测结果设置
@@ -204,8 +203,8 @@ class DatasetService:
             logger.error(f"清理旧版本失败: {e}")
             return 0
     
-    def get_duplicate_datasets(self, dataset_id: str) -> List[Dict[str, Any]]:
-        """获取重复数据集
+    async def get_duplicate_datasets(self, dataset_id: str) -> List[Dict[str, Any]]:
+        """获取重复数据集（异步版本）
         
         Args:
             dataset_id: 数据集ID
@@ -218,7 +217,7 @@ class DatasetService:
             if not dataset:
                 return []
             
-            all_datasets = self.repository.list_all()
+            all_datasets = await self.repository.list_all()
             duplicates = []
             
             for other_dataset in all_datasets:
@@ -367,13 +366,13 @@ class DatasetService:
         """
         return self.repository.get_by_id(dataset_id)
     
-    def list_datasets(self) -> List[DatasetMetadata]:
-        """列出所有数据集
+    async def list_datasets(self) -> List[DatasetMetadata]:
+        """列出所有数据集（异步版本）
         
         Returns:
             List[DatasetMetadata]: 数据集列表
         """
-        return self.repository.list_all()
+        return await self.repository.list_all()
     
     def update_tags(self, request: TagUpdateRequest) -> DatasetMetadata:
         """更新数据集标签
@@ -542,8 +541,10 @@ class DatasetService:
             if not file_path.exists():
                 raise FileNotFoundError(f"数据文件不存在: {file_path}")
             
-            # 运行工业数据分析工作流
-            analysis_result = await run_industrial_analysis(
+            # 使用业务分析服务
+            from .business_analysis_service import BusinessAnalysisService
+            business_service = BusinessAnalysisService()
+            analysis_result = await business_service.run_business_analysis(
                 file_path=file_path,
                 dataset_name=dataset.name,
                 user_requirements=""
@@ -674,30 +675,29 @@ class DatasetService:
                 update_status="quality_analyzing"
             )
             
-            # 4. 启动数据质量分析工作流
+            # 4. 启动数据质量分析
             logger.info(f"开始执行质量分析: {dataset_id}")
             
-            # 导入数据质量分析工作流
-            from ..graph.data_quality_workflow import DataQualityWorkflow
-            from ..schemas.data_quality import QualityAnalysisRequest
-            from ..llms import get_reasoning_llm
+            # 获取文件路径
+            file_path = Path(dataset.file_path)
+            if not file_path.exists():
+                raise FileNotFoundError(f"数据文件不存在: {file_path}")
             
-            # 创建LLM实例
-            llm = get_reasoning_llm()
-            
-            # 创建工作流实例
-            workflow = DataQualityWorkflow(llm)
-            
-            # 创建分析请求
-            request = QualityAnalysisRequest(
+            # 使用业务分析服务
+            from .business_analysis_service import BusinessAnalysisService
+            business_service = BusinessAnalysisService()
+            analysis_result = await business_service.run_quality_analysis(
                 dataset_id=dataset_id,
+                file_path=file_path,
                 user_requirements="进行全面的数据质量分析，重点关注时间序列数据的连续性和参数数据的合理性"
             )
             
-            # 执行分析工作流
-            response = await workflow.run_analysis(request)
+            # 检查分析结果
+            if analysis_result.get("status") != "completed":
+                raise RuntimeError(f"质量分析失败: {analysis_result.get('errors', [])}")
             
-            if response.status == "completed" and response.report:
+            report = analysis_result.get("report", {})
+            if report:
                 # 5. 重新获取数据集以确保最新状态
                 dataset = self.repository.get_by_id(dataset_id)
                 if not dataset:
@@ -706,26 +706,14 @@ class DatasetService:
                 # 更新状态为质量分析完成
                 dataset.processing_status = "quality_completed"
                 
-                # 保存质量分析结果
                 # 计算各维度平均分
-                completeness = 85.0  # 默认值
-                accuracy = 90.0
-                consistency = 88.0
-                timeliness = 80.0
-                
-                # 如果有列级别分析结果，计算平均分
-                if response.report.parameter_columns:
-                    param_scores = [col.overall_score for col in response.report.parameter_columns]
-                    if param_scores:
-                        accuracy = sum(param_scores) / len(param_scores)
-                        
-                if response.report.time_columns:
-                    time_scores = [col.overall_score for col in response.report.time_columns]
-                    if time_scores:
-                        timeliness = sum(time_scores) / len(time_scores)
+                completeness = report.get("completeness", 85.0)
+                accuracy = report.get("accuracy", 90.0)
+                consistency = report.get("consistency", 88.0)
+                timeliness = report.get("timeliness", 80.0)
                 
                 # 根据整体质量等级调整各维度评分
-                overall_score = response.report.overall_score
+                overall_score = report.get("overall_score", 0)
                 if overall_score < 70:
                     completeness = max(60, completeness - 10)
                     accuracy = max(60, accuracy - 10)
@@ -738,26 +726,36 @@ class DatasetService:
                     timeliness = min(100, timeliness + 5)
                 
                 quality_results = {
-                    "overall_score": response.report.overall_score,
-                    "quality_level": response.report.quality_level.value,
+                    "overall_score": overall_score,
+                    "quality_level": report.get("quality_level", "unknown"),
                     # 前端期望的维度评分
                     "completeness": round(completeness),
                     "accuracy": round(accuracy),
                     "consistency": round(consistency),
                     "timeliness": round(timeliness),
                     # 详细分析结果
-                    "time_columns": [col.dict() for col in response.report.time_columns],
-                    "parameter_columns": [col.dict() for col in response.report.parameter_columns],
-                    "category_columns": [col.dict() for col in response.report.category_columns],
-                    "key_issues": response.report.key_issues,
-                    "recommendations": response.report.recommendations,
-                    "summary": response.report.summary,
-                    "analysis_time": response.report.created_at.isoformat(),
-                    "processing_time": response.processing_time
+                    "time_columns": [],
+                    "parameter_columns": [],
+                    "category_columns": [],
+                    "key_issues": report.get("key_issues", []),
+                    "recommendations": report.get("recommendations", []),
+                    "summary": "",
+                    "analysis_time": datetime.now().isoformat(),
+                    "processing_time": 0
                 }
                 
                 # 更新数据集的质量分析结果
                 dataset.quality_analysis_results = quality_results
+                dataset.quality_analysis_report = {
+                    "overall_score": overall_score,
+                    "quality_level": report.get("quality_level", "unknown"),
+                    "completeness": completeness,
+                    "accuracy": accuracy,
+                    "consistency": consistency,
+                    "timeliness": timeliness,
+                    "key_issues": report.get("key_issues", []),
+                    "recommendations": report.get("recommendations", [])
+                }
                 self.repository.save(dataset)
                 
                 # 保存质量分析结果到分离存储
@@ -781,16 +779,16 @@ class DatasetService:
                     logger.warning(f"保存质量分析报告文件失败: {e}")
                     # 不影响主流程，继续执行
                 
-                logger.info(f"质量分析完成: {dataset_id}, 整体得分: {response.report.overall_score:.1f}")
+                logger.info(f"质量分析完成: {dataset_id}, 整体得分: {overall_score:.1f}")
                 
                 return {
                     "success": True,
                     "message": "质量分析完成",
                     "dataset_id": dataset_id,
                     "status": "quality_completed",
-                    "overall_score": response.report.overall_score,
-                    "quality_level": response.report.quality_level.value,
-                    "processing_time": response.processing_time
+                    "overall_score": overall_score,
+                    "quality_level": report.get("quality_level", "unknown"),
+                    "processing_time": 0
                 }
             else:
                 # 分析失败
@@ -840,12 +838,13 @@ class DatasetService:
             if not file_path.exists():
                 raise FileNotFoundError(f"数据文件不存在: {file_path}")
 
-            # 2. 运行增强分析工作流
-            from ..graph import run_enhanced_analysis
+            # 2. 运行增强分析
+            from .business_analysis_service import BusinessAnalysisService
 
             logger.info(f"开始执行增强分析: {dataset_id}")
-            analysis_result = await run_enhanced_analysis(
-                file_path=str(file_path),
+            business_service = BusinessAnalysisService()
+            analysis_result = await business_service.run_enhanced_analysis(
+                file_path=file_path,
                 dataset_name=dataset.name,
                 user_requirements=""
             )

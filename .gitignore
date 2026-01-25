@@ -1,13 +1,23 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+*.pyc
+*.pyo
+*.pyd
+.Python
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
+*.egg
 
 # Virtual environments
 .venv
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
 # Environment variables
 .env
@@ -17,10 +27,27 @@ wheels/
 # Logs
 logs/
 *.log
+*.log.*
+
+# Python testing and coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
 
 # Uploads and data
 uploads/
 metadata/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
 
 # Reports and analysis results
 reports/
@@ -37,6 +64,14 @@ metadata_*.json
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+*~
 
 # OS
 .DS_Store
@@ -62,7 +97,35 @@ frontend/.next/
 frontend/out/
 frontend/node_modules/
 
+# agent-chat-ui build outputs
+agent-chat-ui/.next/
+agent-chat-ui/out/
+agent-chat-ui/node_modules/
+agent-chat-ui/.env.local
+agent-chat-ui/.env
+
 # Package manager lockfiles (optional - you may want to commit these)
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# LangGraph
+backend/.langgraph_api/
+.langgraph_api/
+
+# Playwright and screenshots
+.playwright-mcp/
+*.png
+!**/public/**/*.png
+!**/src/**/logo*.png
+!**/src/**/favicon*.png
+
+# Debug and temporary scripts
+check_logs_location.py
+debug_*.py
+*_debug.py
+temp_*.py
+*_temp.py
+
+# Python version (optional - uncomment if you don't want to track it)
+# .python-version

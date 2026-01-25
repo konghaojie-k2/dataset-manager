@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "data_processing_agent": "src/agents/data_processing/graph.py:graph",
+    "query_agent": "src/agents/query/graph.py:graph"
+  },
+  "env": ".env"
+}

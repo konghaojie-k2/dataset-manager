@@ -25,7 +25,16 @@ class DatasetRepository:
             metadata_dir: 元数据存储目录
         """
         self.metadata_dir = Path(metadata_dir)
-        self.metadata_dir.mkdir(parents=True, exist_ok=True)
+        # 延迟初始化：只在目录不存在时创建，使用线程池避免阻塞
+        if not self.metadata_dir.exists():
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            _executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(_executor, lambda: self.metadata_dir.mkdir(parents=True, exist_ok=True))
+            except RuntimeError:
+                self.metadata_dir.mkdir(parents=True, exist_ok=True)
         
         # 初始化SQLite数据库仓储
         db_path = self.metadata_dir / "datasets.db"
@@ -33,13 +42,37 @@ class DatasetRepository:
         
         # JSON文件存储目录（用于存储分析结果）
         self.json_dir = self.metadata_dir / "analysis_results"
-        self.json_dir.mkdir(exist_ok=True)
+        if not self.json_dir.exists():
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            _executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(_executor, lambda: self.json_dir.mkdir(exist_ok=True))
+            except RuntimeError:
+                self.json_dir.mkdir(exist_ok=True)
         
         # 分离存储目录
         self.business_analysis_dir = self.json_dir / "business"
         self.quality_analysis_dir = self.json_dir / "quality"
-        self.business_analysis_dir.mkdir(exist_ok=True)
-        self.quality_analysis_dir.mkdir(exist_ok=True)
+        if not self.business_analysis_dir.exists():
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            _executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(_executor, lambda: self.business_analysis_dir.mkdir(exist_ok=True))
+            except RuntimeError:
+                self.business_analysis_dir.mkdir(exist_ok=True)
+        if not self.quality_analysis_dir.exists():
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            _executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(_executor, lambda: self.quality_analysis_dir.mkdir(exist_ok=True))
+            except RuntimeError:
+                self.quality_analysis_dir.mkdir(exist_ok=True)
         
         # 内存缓存（可选，用于提高性能）
         self._cache: Dict[str, DatasetMetadata] = {}
@@ -352,15 +385,20 @@ class DatasetRepository:
             logger.warning(f"从JSON加载分析结果失败: {e}")
             # 不影响主流程
     
-    def list_all(self) -> List[DatasetMetadata]:
-        """获取所有数据集
+    async def list_all(self) -> List[DatasetMetadata]:
+        """获取所有数据集（异步版本，避免阻塞调用）
         
         Returns:
             List[DatasetMetadata]: 数据集列表
         """
         try:
-            # 从SQLite获取数据集列表
-            datasets = self.db_repository.list_datasets()
+            import asyncio
+            # 使用 asyncio.to_thread 在线程中执行阻塞的数据库查询
+            datasets = await asyncio.to_thread(
+                self.db_repository.list_datasets,
+                limit=10000,
+                offset=0
+            )
             
             # 为了显示正确的状态，需要加载质量分析结果
             for dataset in datasets:
@@ -380,7 +418,7 @@ class DatasetRepository:
             return datasets
             
         except Exception as e:
-            logger.error(f"列出数据集失败: {e}")
+            logger.error(f"列出数据集失败: {e}", exc_info=True)
             return []
     
     def list_with_filters(

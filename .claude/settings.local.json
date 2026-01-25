@@ -6,7 +6,25 @@
       "Bash(npm install:*)",
       "Bash(uv run pytest:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(uv run python:*)"
+      "Bash(uv run python:*)",
+      "Bash(echo:*)",
+      "mcp__langchain__SearchDocsByLangChain",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(findstr LISTENING)",
+      "Bash(powershell:*)",
+      "Bash(tasklist:*)",
+      "Bash(timeout:*)",
+      "Bash(taskkill:*)",
+      "Bash(python:*)",
+      "Read(C:\\Users\\17625\\.claude\\skills\\docx\\ooxml\\scripts\\unpack.py)",
+      "Edit",
+      "Read(C:\\Users\\17625\\.claude\\skills\\docx\\docx-js.md)"
     ]
+  },
+  "enabledPlugins": {
+    "ralph-loop@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true
   }
 }

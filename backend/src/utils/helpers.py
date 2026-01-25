@@ -1,6 +1,7 @@
 """通用工具函数"""
 
 import json
+import asyncio
 from typing import Any, List
 from pathlib import Path
 
@@ -56,4 +57,20 @@ def validate_file_extension(file_path: Path, allowed_extensions: List[str]) -> b
     Returns:
         bool: 是否为允许的扩展名
     """
-    return file_path.suffix.lower() in [ext.lower() for ext in allowed_extensions] 
+    return file_path.suffix.lower() in [ext.lower() for ext in allowed_extensions]
+
+
+async def async_mkdir(path: Path, parents: bool = False, exist_ok: bool = False) -> None:
+    """异步创建目录
+    
+    将阻塞的 mkdir 操作移到线程池中执行，避免阻塞事件循环
+    
+    Args:
+        path: 目录路径
+        parents: 是否创建父目录
+        exist_ok: 如果目录已存在是否忽略错误
+    """
+    def _mkdir():
+        path.mkdir(parents=parents, exist_ok=exist_ok)
+    
+    await asyncio.to_thread(_mkdir) 

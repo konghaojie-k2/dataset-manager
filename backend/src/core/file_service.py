@@ -20,7 +20,16 @@ class FileService:
             upload_dir: 上传目录
         """
         self.upload_dir = Path(upload_dir)
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
+        # 延迟初始化：只在目录不存在时创建，使用线程池避免阻塞
+        if not self.upload_dir.exists():
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            _executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_in_executor(_executor, lambda: self.upload_dir.mkdir(parents=True, exist_ok=True))
+            except RuntimeError:
+                self.upload_dir.mkdir(parents=True, exist_ok=True)
         
         self.file_processor = FileProcessor(upload_dir=self.upload_dir)
         

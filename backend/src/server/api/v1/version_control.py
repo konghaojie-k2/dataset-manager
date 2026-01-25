@@ -38,7 +38,7 @@ async def get_dataset_version_history(dataset_id: str = Path(..., description="�
         version_history = dataset_service.get_version_history(dataset_id)
         
         # 获取重复数据集
-        duplicates = dataset_service.get_duplicate_datasets(dataset_id)
+        duplicates = await dataset_service.get_duplicate_datasets(dataset_id)
         
         return {
             "dataset_id": dataset_id,
@@ -67,7 +67,7 @@ async def get_duplicate_datasets(dataset_id: str = Path(..., description="数据
     """
     try:
         dataset_service = get_dataset_service()
-        duplicates = dataset_service.get_duplicate_datasets(dataset_id)
+        duplicates = await dataset_service.get_duplicate_datasets(dataset_id)
         
         return {
             "dataset_id": dataset_id,
