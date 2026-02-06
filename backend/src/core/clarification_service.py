@@ -110,16 +110,13 @@ class ClarificationService:
             )
             
             clarification_reason = intent_dict.get("clarification_reason", "查询不够明确")
-            clarification_message = intent_dict.get(
-                "clarification_message",
-                f"为了更好地帮您找到需要的数据集，请填写以下信息：{clarification_reason}"
-            )
+            clarification_message = "请完善信息"
             
             logger.info(f"澄清表单生成成功: {len(form_schema.fields)}个字段")
             
             return {
                 "needs_clarification": True,
-                "form_schema": form_schema.model_dump(),
+                "form_schema": form_schema.model_dump(mode='json'),
                 "message": clarification_message,
                 "clarification_reason": clarification_reason,
                 "intent": intent_dict

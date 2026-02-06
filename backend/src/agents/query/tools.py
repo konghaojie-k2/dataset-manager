@@ -102,8 +102,10 @@ async def search_datasets_tool(
         # 2. 使用SearchService进行LLM增强搜索
         try:
             llm_result = await search_service.search(query, all_datasets, intent_result)
+            logger.info(f"[Agent Tool] LLM搜索返回结果: type={llm_result.get('type')}, datasets={llm_result.get('datasets', [])}")
             # 处理搜索结果
             final_result = search_service.process_search_result(llm_result, all_datasets, query, limit)
+            logger.info(f"[Agent Tool] 处理后的最终结果: type={final_result.get('type')}, count={final_result.get('count', 0)}")
             return json.dumps(final_result, ensure_ascii=False)
             
         except Exception as llm_error:
@@ -352,55 +354,80 @@ async def clarify_intent_tool(
 ) -> str:
     """
     意图澄清工具（集成A2UI表单生成）
-    
+
     如果Agent认为意图识别结果不够清晰，调用此工具生成A2UI表单供用户填写。
     表单会在前端动态显示，用户填写后可以重新进行搜索。
-    
+
     Args:
         query: 用户原始查询
         intent_result: 意图识别工具的JSON输出（可选，如果没有则重新分析）
         session_context: 会话上下文的JSON字符串（可选，用于预填表单）
-    
+
     Returns:
-        JSON 字符串，包含：
-        - needs_clarification: 是否需要澄清（bool）
-        - form_schema: A2UI表单Schema（如果需要澄清）
-        - message: 澄清消息
+        JSON 字符串，包含UI渲染信息和表单数据：
+        - type: "ui_form" 表示需要渲染A2UI表单
+        - ui_component: 组件类型 ("a2ui-form")
+        - message: 显示给用户的消息
+        - form_schema: A2UI表单完整定义
         - clarification_reason: 澄清原因
         - intent: 意图分析结果
     """
-    logger.info(f"[Agent Tool] 意图澄清: query={query}, intent_result={'provided' if intent_result else 'none'}")
+    logger.info(f"[Agent Tool] 意图澄清: query={query}")
 
     try:
         from ...core.clarification_service import ClarificationService
-        
+        from ...core.a2ui_form_service import A2UIFormService
+
         clarification_service = ClarificationService()
-        
-        # 解析会话上下文
+        a2ui_service = A2UIFormService()
+
         context_dict = None
         if session_context:
             try:
                 context_dict = json.loads(session_context) if isinstance(session_context, str) else session_context
             except json.JSONDecodeError:
                 logger.warning("会话上下文格式错误，忽略")
-        
-        # 执行意图澄清
+
+        intent_dict = None
+        if intent_result:
+            try:
+                intent_dict = json.loads(intent_result) if isinstance(intent_result, str) else intent_result
+            except json.JSONDecodeError:
+                pass
+
         clarification_result = await clarification_service.clarify_intent(
             query=query,
             intent_result=intent_result,
             session_context=context_dict
         )
-        
-        logger.info(f"[Agent Tool] 意图澄清完成: needs_clarification={clarification_result.get('needs_clarification')}")
-        return json.dumps(clarification_result, ensure_ascii=False, default=str)
+
+        if clarification_result.get("needs_clarification") and clarification_result.get("form_schema"):
+            form_schema = clarification_result["form_schema"]
+
+            ui_response = {
+                "type": "ui_form",
+                "ui_component": "a2ui-form",
+                "message": "",
+                "form_schema": form_schema,
+                "clarification_reason": "",
+                "intent": clarification_result.get("intent", {})
+            }
+
+            logger.info(f"[Agent Tool] 生成A2UI表单: form_id={form_schema.get('form_id', 'unknown')}")
+            return json.dumps(ui_response, ensure_ascii=False, default=str)
+
+        return json.dumps({
+            "type": "message",
+            "message": clarification_result.get("message", "无需澄清"),
+            "needs_clarification": False
+        }, ensure_ascii=False)
 
     except Exception as e:
         logger.error(f"[Agent Tool] 意图澄清失败: {e}", exc_info=True)
         return json.dumps({
-            "needs_clarification": False,
+            "type": "message",
             "message": f"意图澄清失败: {str(e)}",
-            "error": str(e),
-            "query": query
+            "error": str(e)
         }, ensure_ascii=False)
 
 

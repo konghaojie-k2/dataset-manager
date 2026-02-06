@@ -14,6 +14,9 @@ import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Bot } from "lucide-react";
+import { A2UIFormMessage, findA2UIFormInMessages } from "./a2ui-form-message";
 
 function CustomComponent({
   message,
@@ -146,7 +149,13 @@ export function AssistantMessage({
   }
 
   return (
-    <div className="group mr-auto flex w-full items-start gap-2">
+    <div className="group mr-auto flex w-full items-start gap-3">
+      {/* AI Avatar */}
+      <Avatar className="size-8 shrink-0">
+        <AvatarFallback className="bg-[#7c9885] text-white">
+          <Bot className="size-4" />
+        </AvatarFallback>
+      </Avatar>
       <div className="flex w-full flex-col gap-2">
         {isToolResult ? (
           <>
@@ -160,7 +169,7 @@ export function AssistantMessage({
         ) : (
           <>
             {contentString.length > 0 && (
-              <div className="py-1">
+              <div className="py-2 px-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
@@ -185,6 +194,14 @@ export function AssistantMessage({
                 thread={thread}
               />
             )}
+
+            {hasToolCalls && message.tool_calls && (
+              <A2UIFormMessageRenderer
+                message={message}
+                toolCalls={message.tool_calls}
+              />
+            )}
+
             <Interrupt
               interrupt={threadInterrupt}
               isLastMessage={isLastMessage}
@@ -216,9 +233,47 @@ export function AssistantMessage({
   );
 }
 
+interface A2UIFormMessageRendererProps {
+  message: Message;
+  toolCalls: NonNullable<Message["tool_calls"]>;
+}
+
+function A2UIFormMessageRenderer({ message, toolCalls }: A2UIFormMessageRendererProps) {
+  const thread = useStreamContext();
+
+  const a2uiForms = findA2UIFormInMessages(thread.messages);
+
+  if (a2uiForms.size === 0) return null;
+
+  return (
+    <>
+      {toolCalls.map((toolCall) => {
+        const formData = a2uiForms.get(toolCall.id);
+        if (formData) {
+          return (
+            <A2UIFormMessage
+              key={toolCall.id}
+              message={message}
+              toolCallId={toolCall.id}
+              formData={formData}
+            />
+          );
+        }
+        return null;
+      })}
+    </>
+  );
+}
+
 export function AssistantMessageLoading() {
   return (
-    <div className="mr-auto flex items-start gap-2">
+    <div className="mr-auto flex items-start gap-3">
+      {/* AI Avatar */}
+      <Avatar className="size-8 shrink-0">
+        <AvatarFallback className="bg-[#7c9885] text-white">
+          <Bot className="size-4" />
+        </AvatarFallback>
+      </Avatar>
       <div className="bg-muted flex h-8 items-center gap-1 rounded-2xl px-4 py-2">
         <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full"></div>
         <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_0.5s_infinite] rounded-full"></div>

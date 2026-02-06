@@ -9,7 +9,8 @@ from loguru import logger
 from src.schemas.chat import (
     ChatRequest,
     ChatResponse,
-    ChatMessage
+    ChatMessage,
+    FormSubmitRequest
 )
 from src.core.chat_service import ChatService
 from src.server.dependencies import get_dataset_service
@@ -123,4 +124,31 @@ async def clear_session(
 
     except Exception as e:
         logger.error(f"清除会话失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/form-submit", response_model=ChatResponse)
+async def submit_form(
+    request: FormSubmitRequest,
+    chat_service: ChatService = Depends(get_chat_service)
+):
+    """提交A2UI表单
+
+    Args:
+        request: 表单提交请求
+        chat_service: 聊天服务
+
+    Returns:
+        ChatResponse: 聊天响应
+    """
+    try:
+        logger.info(f"收到表单提交: session_id={request.session_id}, form_id={request.form_id}")
+
+        response = await chat_service.submit_form(request.session_id, request.form_id, request.data)
+
+        logger.info(f"表单提交响应: type={response.type}, datasets={len(response.datasets)}")
+        return response
+
+    except Exception as e:
+        logger.error(f"处理表单提交失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

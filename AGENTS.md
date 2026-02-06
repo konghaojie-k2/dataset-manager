@@ -22,152 +22,8 @@ Usage notes:
 <available_skills>
 
 <skill>
-<name>algorithmic-art</name>
-<description>Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users request creating art using code, generative art, algorithmic art, flow fields, or particle systems. Create original algorithmic art rather than copying existing artists' work to avoid copyright violations.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>brand-guidelines</name>
-<description>Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthropic's look-and-feel. Use it when brand colors or style guidelines, visual formatting, or company design standards apply.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>canvas-design</name>
-<description>Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright violations.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>commit-revision-analysis</name>
-<description>Analyze git commit history for a specified time period and generate revision reports. Use this skill when users need to analyze code changes, generate revision summaries, understand project evolution, or create change reports. Analyzes commits from both business logic and code optimization perspectives, identifying key improvements and generating structured markdown reports.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>doc-coauthoring</name>
-<description>Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content. This workflow helps users efficiently transfer context, refine content through iteration, and verify the doc works for readers. Trigger when user mentions writing docs, creating proposals, drafting specs, or similar documentation tasks.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>docx</name>
-<description>"Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction. When Claude needs to work with professional documents (.docx files) for: (1) Creating new documents, (2) Modifying or editing content, (3) Working with tracked changes, (4) Adding comments, or any other document tasks"</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>excalidraw-diagram</name>
-<description>Generate Excalidraw diagrams from text content for Obsidian. Use when user asks to create diagrams, flowcharts, mind maps, or visual representations in Excalidraw format. Triggers on "Excalidraw", "画图", "流程图", "思维导图", "可视化", "diagram".</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>fix-python-utf8</name>
-<description>Automatically configure Python UTF-8 encoding on Windows by creating and installing sitecustomize.py to virtual environment. Use when Python scripts display garbled Chinese characters or emoji in Windows console, or when user reports UnicodeEncodeError with non-ASCII output. Triggered by requests like "fix Chinese encoding", "configure UTF-8", or "emoji displays as garbled text".</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>frontend-design</name>
-<description>Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI). Generates creative, polished code and UI design that avoids generic AI aesthetics.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>internal-comms</name>
-<description>A set of resources to help me write all kinds of internal communications, using the formats that my company likes to use. Claude should use this skill whenever asked to write some sort of internal communications (status reports, leadership updates, 3P updates, company newsletters, FAQs, incident reports, project updates, etc.).</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>json-canvas</name>
-<description>Create and edit JSON Canvas files (.canvas) with nodes, edges, groups, and connections. Use when working with .canvas files, creating visual canvases, mind maps, flowcharts, or when the user mentions Canvas files in Obsidian.</description>
-<location>global</location>
-</skill>
-
-<skill>
 <name>langgraph-agent-ui</name>
-<description>Full-stack LangGraph Agent application template with integrated Agent Chat UI frontend. Use when building AI agent applications that require: (1) LangGraph backend with autonomous agent orchestration, (2) Next.js frontend with chat interface, (3) Real-time streaming responses, (4) File upload and data processing capabilities, (5) FastAPI business logic integration. Perfect for data analysis agents, query assistants, workflow automation, and any conversational AI application needing custom UI.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mcp-builder</name>
-<description>Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>mermaid-visualizer</name>
-<description>Transform text content into professional Mermaid diagrams for presentations and documentation. Use when users ask to visualize concepts, create flowcharts, or make diagrams from text. Supports process flows, system architectures, comparisons, mindmaps, and more with built-in syntax error prevention.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>obsidian-bases</name>
-<description>Create and edit Obsidian Bases (.base files) with views, filters, formulas, and summaries. Use when working with .base files, creating database-like views of notes, or when the user mentions Bases, table views, card views, filters, or formulas in Obsidian.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>obsidian-canvas-creator</name>
-<description>Create Obsidian Canvas files from text content, supporting both MindMap and freeform layouts. Use this skill when users want to visualize content as an interactive canvas, create mind maps, or organize information spatially in Obsidian format.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>obsidian-markdown</name>
-<description>Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, and other Obsidian-specific syntax. Use when working with .md files in Obsidian, or when the user mentions wikilinks, callouts, frontmatter, tags, embeds, or Obsidian notes.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>pdf</name>
-<description>Comprehensive PDF manipulation toolkit for extracting text and tables, creating new PDFs, merging/splitting documents, and handling forms. When Claude needs to fill in a PDF form or programmatically process, generate, or analyze PDF documents at scale.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>pptx</name>
-<description>"Presentation creation, editing, and analysis. When Claude needs to work with presentations (.pptx files) for: (1) Creating new presentations, (2) Modifying or editing content, (3) Working with layouts, (4) Adding comments or speaker notes, or any other presentation tasks"</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>skill-creator</name>
-<description>Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>slack-gif-creator</name>
-<description>Knowledge and utilities for creating animated GIFs optimized for Slack. Provides constraints, validation tools, and animation concepts. Use when users request animated GIFs for Slack like "make me a GIF of X doing Y for Slack."</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>theme-factory</name>
-<description>Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>web-artifacts-builder</name>
-<description>Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>webapp-testing</name>
-<description>Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.</description>
-<location>global</location>
-</skill>
-
-<skill>
-<name>xlsx</name>
-<description>"Comprehensive spreadsheet creation, editing, and analysis with support for formulas, formatting, data analysis, and visualization. When Claude needs to work with spreadsheets (.xlsx, .xlsm, .csv, .tsv, etc) for: (1) Creating new spreadsheets with formulas and formatting, (2) Reading or analyzing data, (3) Modify existing spreadsheets while preserving formulas, (4) Data analysis and visualization in spreadsheets, or (5) Recalculating formulas"</description>
+<description>Full-stack LangGraph Agent application template with integrated Agent Chat UI frontend. Use when building AI agent applications that require: (1) LangGraph backend with autonomous agent orchestration, (2) Next.js frontend with chat interface, (3) Real-time streaming responses, (4) File upload and data processing capabilities, (5) FastAPI business logic integration.</description>
 <location>global</location>
 </skill>
 
@@ -175,3 +31,149 @@ Usage notes:
 <!-- SKILLS_TABLE_END -->
 
 </skills_system>
+
+---
+
+## Build / Lint / Test Commands
+
+### Backend Commands
+
+```bash
+cd backend
+
+# Install dependencies (using uv with Aliyun mirror)
+uv sync
+
+# Run unified server (LangGraph + FastAPI)
+uv run python start_unified.py
+
+# Run with LangGraph dev server only
+langgraph dev
+
+# Run specific Python script
+cd "C:\CODE\dataset-manager\backend"
+uv run python script_name.py
+
+# Run all tests
+uv run pytest
+
+# Run single test file
+uv run pytest tests/test_file.py
+
+# Run single test function
+uv run pytest tests/test_file.py::test_function_name
+
+# Run with coverage
+uv run pytest --cov=src --cov-report=html
+```
+
+### Frontend Commands
+
+```bash
+cd agent-chat-ui
+
+# Install dependencies
+pnpm install
+
+# Run development server (port 3000)
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Lint code
+pnpm lint
+
+# Lint and fix
+pnpm lint --fix
+```
+
+---
+
+## Code Style Guidelines
+
+### Python (Backend)
+
+**Encoding:**
+- All Python files MUST include UTF-8 encoding at the top:
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+```
+
+**Imports:**
+- Use absolute imports with `src.` prefix (e.g., `from src.core.dataset_service import DatasetService`)
+- Group imports: standard library → third-party → local application
+- Sort imports alphabetically within groups
+- Use lazy imports in LangGraph tools to avoid circular dependencies
+
+**Types:**
+- Use type hints for all function parameters and return values
+- Use `typing` module: `Dict`, `List`, `Optional`, `Any`, `Union`
+- Prefer Pydantic models over dictionaries for structured data
+
+**Naming:**
+- `PascalCase` for classes: `DatasetService`, `DataAnalyzer`
+- `snake_case` for functions and variables: `upload_dataset`, `file_path`
+- `SCREAMING_SNAKE_CASE` for constants: `MAX_FILE_SIZE`
+- Private methods/attributes prefixed with `_`: `_internal_method`
+
+**Error Handling:**
+- Use `try/except` with specific exception types
+- Log errors with `loguru.logger` before re-raising
+- Raise descriptive `ValueError` or custom exceptions for validation errors
+- Avoid bare `except:` clauses
+
+**Logging:**
+- Use `from loguru import logger`
+- Use appropriate levels: `logger.info()`, `logger.warning()`, `logger.error()`, `logger.debug()`
+- Include relevant context in log messages
+
+**Documentation:**
+- Use docstrings for all public classes and functions
+- Write docstrings in Chinese for business logic
+- Include Args and Returns sections for functions with parameters
+
+### TypeScript (Frontend)
+
+**Naming:**
+- `PascalCase` for components: `DatasetUpload.tsx`, `AnalysisProgressPanel.tsx`
+- `camelCase` for functions and variables: `handleUpload`, `datasetList`
+- Use descriptive names: avoid abbreviations except well-known ones
+
+**Types:**
+- Use TypeScript interfaces for component props
+- Avoid `any` type; use `unknown` when type is uncertain
+- Use proper typing for async operations
+
+**Components:**
+- Use functional components with hooks
+- Place components in `components/` directory organized by feature
+- Use shadcn/ui components from `@/components/ui`
+
+---
+
+## Environment Setup
+
+**Backend (.env):**
+```bash
+DATASET_MANAGER_DEEPSEEK_API_KEY=sk-xxx
+DATASET_MANAGER_DEEPSEEK_BASE_URL=https://api.deepseek.com/v1/
+DATASET_MANAGER_SUPABASE_URL=xxx
+DATASET_MANAGER_SUPABASE_SERVICE_KEY=xxx
+```
+
+**Frontend (.env.local):**
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+```
+
+---
+
+## Important Notes
+
+- Use `uv` for Python package management (Aliyun mirror configured)
+- **Windows environment**: No `&&` chaining in commands
+- Delete temporary test files after completion
+- Run `uv run pytest` to verify changes before committing

@@ -55,20 +55,24 @@ function StickyToBottomContent(props: {
   contentClassName?: string;
 }) {
   const context = useStickToBottomContext();
+  const isChatStarted = props.contentClassName?.includes("justify-center") ?? false;
   return (
-    <div
-      ref={context.scrollRef}
-      style={{ width: "100%", height: "100%" }}
-      className={props.className}
-    >
+    <div className="flex flex-col h-full w-full overflow-hidden">
       <div
-        ref={context.contentRef}
-        className={props.contentClassName}
+        ref={context.scrollRef}
+        className={cn("flex-1", props.className)}
       >
-        {props.content}
+        <div
+          ref={context.contentRef}
+          className={cn(props.contentClassName, isChatStarted && "flex-1")}
+        >
+          {props.content}
+        </div>
       </div>
 
-      {props.footer}
+      <div className="shrink-0">
+        {props.footer}
+      </div>
     </div>
   );
 }
@@ -209,7 +213,7 @@ export function Thread({
   );
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-full w-full overflow-hidden">
       <div className="relative hidden lg:flex">
         <motion.div
           className="absolute z-20 h-full overflow-hidden border-r bg-white"
@@ -343,13 +347,57 @@ export function Thread({
           <StickToBottom className="relative flex-1 overflow-hidden">
             <StickyToBottomContent
               className={cn(
-                "absolute inset-0 overflow-y-scroll px-4 bg-[#faf8f5] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent",
-                !chatStarted && "mt-[25vh] flex flex-col items-stretch",
-                chatStarted && "grid grid-rows-[1fr_auto]",
+                "overflow-y-scroll px-4 bg-[#faf8f5] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:transparent",
               )}
-              contentClassName="pt-8 pb-16 max-w-3xl mx-auto flex flex-col gap-4 w-full"
+              contentClassName={cn(
+                "pt-8 pb-8 max-w-3xl mx-auto flex flex-col gap-4 w-full",
+                !chatStarted && "flex-1 flex flex-col justify-center items-center pt-0 pb-0",
+              )}
               content={
                 <>
+                  {!chatStarted && (
+                    <div className="flex flex-col items-center justify-center text-center px-4 py-12">
+                      <div className="mb-6">
+                        <SupermarketLogo type="dataset" className="h-16 w-16 mx-auto mb-4" />
+                        <h2 className="text-3xl font-bold text-[#1a1a1a] mb-2" style={{ fontFamily: 'var(--font-playfair)' }}>
+                          数据集助手
+                        </h2>
+                        <p className="text-gray-600 text-base max-w-md mx-auto">
+                          我可以帮您搜索、浏览和分析数据集。您可以问我关于数据集的问题，或者让我帮您找到特定的数据集。
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full mt-6">
+                        <button
+                          onClick={() => setInput("有哪些数据集？")}
+                          className="text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-[#c75b39] hover:shadow-md transition-all text-sm text-gray-700 hover:text-[#1a1a1a]"
+                        >
+                          <div className="font-medium mb-1">有哪些数据集？</div>
+                          <div className="text-xs text-gray-500">查看所有可用的数据集</div>
+                        </button>
+                        <button
+                          onClick={() => setInput("搜索有色金属相关的数据集")}
+                          className="text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-[#c75b39] hover:shadow-md transition-all text-sm text-gray-700 hover:text-[#1a1a1a]"
+                        >
+                          <div className="font-medium mb-1">搜索数据集</div>
+                          <div className="text-xs text-gray-500">按行业、标签或关键词搜索</div>
+                        </button>
+                        <button
+                          onClick={() => setInput("帮我分析一下数据集的质量")}
+                          className="text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-[#c75b39] hover:shadow-md transition-all text-sm text-gray-700 hover:text-[#1a1a1a]"
+                        >
+                          <div className="font-medium mb-1">数据分析</div>
+                          <div className="text-xs text-gray-500">获取数据集的详细分析</div>
+                        </button>
+                        <button
+                          onClick={() => setInput("显示数据集预览")}
+                          className="text-left p-4 bg-white rounded-lg border border-gray-200 hover:border-[#c75b39] hover:shadow-md transition-all text-sm text-gray-700 hover:text-[#1a1a1a]"
+                        >
+                          <div className="font-medium mb-1">预览数据</div>
+                          <div className="text-xs text-gray-500">查看数据集的前几行数据</div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {(messages || [])
                     .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
                     .map((message, index) =>
@@ -384,27 +432,19 @@ export function Thread({
                 </>
               }
               footer={
-                <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-[#faf8f5]">
-                  {!chatStarted && (
-                    <div className="flex items-center gap-3">
-                      <SupermarketLogo type="dataset" className="h-10 w-10" />
-                      <h1 className="text-2xl font-semibold tracking-tight">
-                        Dataset Supermarket
-                      </h1>
-                    </div>
-                  )}
-
-                  <ScrollToBottom className="animate-in fade-in-0 zoom-in-95 absolute bottom-full left-1/2 mb-4 -translate-x-1/2" />
-
-                  <div
-                    ref={dropRef}
-                    className={cn(
-                      "bg-white relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-sm transition-all border border-gray-200",
-                      dragOver
-                        ? "border-primary border-2 border-dotted"
-                        : "border-gray-200",
-                    )}
-                  >
+                <div className="flex flex-col items-center gap-4 bg-[#faf8f5] pb-8 w-full px-4">
+                  <div className="relative w-full max-w-3xl">
+                    <ScrollToBottom className="animate-in fade-in-0 zoom-in-95 absolute bottom-full left-1/2 mb-4 -translate-x-1/2" />
+                    
+                    <div
+                      ref={dropRef}
+                      className={cn(
+                        "bg-white relative z-10 mx-auto w-full rounded-2xl shadow-sm transition-all border border-gray-200",
+                        dragOver
+                          ? "border-primary border-2 border-dotted"
+                          : "border-gray-200",
+                      )}
+                    >
                     <form
                       onSubmit={handleSubmit}
                       className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
@@ -492,6 +532,7 @@ export function Thread({
                         )}
                       </div>
                     </form>
+                    </div>
                   </div>
                 </div>
               }

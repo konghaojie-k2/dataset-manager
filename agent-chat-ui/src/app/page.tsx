@@ -118,95 +118,143 @@ export default function HomePage(): React.ReactNode {
                 <div className="max-w-7xl mx-auto px-6">
                   {/* Header content - only show when no active chat */}
                   {!threadId && (
-                    <div className="pt-8 pb-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex-1">
+                    <div className="pt-6 pb-4 relative">
+                      <div className="flex items-center gap-8">
+                        {/* Left: Title and description */}
+                        <div className="flex-1 min-w-0">
                           <h1
-                            className="text-3xl font-bold text-[#1a1a1a] mb-1 tracking-tight"
+                            className="text-2xl font-bold text-[#1a1a1a] mb-0.5 tracking-tight"
                             style={{ fontFamily: 'var(--font-playfair)' }}
                           >
                             数据集超市
                           </h1>
-                          <p className="text-sm text-gray-600 font-light" style={{ fontFamily: 'var(--font-outfit)' }}>
+                          <p className="text-xs text-gray-600 font-light" style={{ fontFamily: 'var(--font-outfit)' }}>
                             发现、探索和分析高质量数据集
                           </p>
                         </div>
-                        {/* Stats */}
-                        <div className="hidden md:flex gap-6 text-center">
+                        {/* Center: Tab Navigation - absolutely centered */}
+                        <nav className="absolute left-1/2 transform -translate-x-1/2 flex gap-6 flex-shrink-0 items-end justify-center">
+                          <button
+                            onClick={() => setActiveTab('chat')}
+                            className={`
+                              relative py-3 px-1 font-medium transition-all duration-300
+                              ${activeTab === 'chat'
+                                ? 'text-[#1a1a1a]'
+                                : 'text-gray-400 hover:text-gray-600'
+                              }
+                            `}
+                            style={{ fontFamily: 'var(--font-playfair)' }}
+                          >
+                            <span className="text-base">智能查询</span>
+                            {activeTab === 'chat' && (
+                              <span className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('browse')}
+                            className={`
+                              relative py-3 px-1 font-medium transition-all duration-300
+                              ${activeTab === 'browse'
+                                ? 'text-[#1a1a1a]'
+                                : 'text-gray-400 hover:text-gray-600'
+                              }
+                            `}
+                            style={{ fontFamily: 'var(--font-playfair)' }}
+                          >
+                            <span className="text-base">浏览数据集</span>
+                            {activeTab === 'browse' && (
+                              <span className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('upload')}
+                            className={`
+                              relative py-3 px-1 font-medium transition-all duration-300
+                              ${activeTab === 'upload'
+                                ? 'text-[#1a1a1a]'
+                                : 'text-gray-400 hover:text-gray-600'
+                              }
+                            `}
+                            style={{ fontFamily: 'var(--font-playfair)' }}
+                          >
+                            <span className="text-base">上传与分析</span>
+                            {activeTab === 'upload' && (
+                              <span className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
+                            )}
+                          </button>
+                        </nav>
+                        {/* Right: Stats */}
+                        <div className="hidden md:flex gap-6 text-center flex-1 justify-end">
                           <div>
-                            <div className="text-xl font-bold text-[#c75b39]" style={{ fontFamily: 'var(--font-playfair)' }}>
+                            <div className="text-lg font-bold text-[#c75b39]" style={{ fontFamily: 'var(--font-playfair)' }}>
                               1000+
                             </div>
                             <div className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">数据集</div>
                           </div>
                           <div>
-                            <div className="text-xl font-bold text-[#7c9885]" style={{ fontFamily: 'var(--font-playfair)' }}>
+                            <div className="text-lg font-bold text-[#7c9885]" style={{ fontFamily: 'var(--font-playfair)' }}>
                               50+
                             </div>
                             <div className="text-xs text-gray-500 uppercase tracking-wide mt-0.5">行业领域</div>
                           </div>
                         </div>
                       </div>
-                      {/* Decorative line */}
-                      <div className="flex gap-1 mb-2">
-                        <div className="h-0.5 w-12 bg-[#c75b39]" />
-                        <div className="h-0.5 w-6 bg-[#7c9885]" />
-                        <div className="h-0.5 w-3 bg-gray-300" />
-                      </div>
                     </div>
                   )}
                   
-                  {/* Tab Navigation */}
-                  <nav className="flex gap-8">
-                    <button
-                      onClick={() => setActiveTab('chat')}
-                      className={`
-                        relative py-4 px-1 font-medium transition-all duration-300
-                        ${activeTab === 'chat'
-                          ? 'text-[#1a1a1a]'
-                          : 'text-gray-400 hover:text-gray-600'
-                        }
-                      `}
-                      style={{ fontFamily: 'var(--font-playfair)' }}
-                    >
-                      <span className="text-lg">智能查询</span>
-                      {activeTab === 'chat' && (
-                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('browse')}
-                      className={`
-                        relative py-4 px-1 font-medium transition-all duration-300
-                        ${activeTab === 'browse'
-                          ? 'text-[#1a1a1a]'
-                          : 'text-gray-400 hover:text-gray-600'
-                        }
-                      `}
-                      style={{ fontFamily: 'var(--font-playfair)' }}
-                    >
-                      <span className="text-lg">浏览数据集</span>
-                      {activeTab === 'browse' && (
-                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('upload')}
-                      className={`
-                        relative py-4 px-1 font-medium transition-all duration-300
-                        ${activeTab === 'upload'
-                          ? 'text-[#1a1a1a]'
-                          : 'text-gray-400 hover:text-gray-600'
-                        }
-                      `}
-                      style={{ fontFamily: 'var(--font-playfair)' }}
-                    >
-                      <span className="text-lg">上传与分析</span>
-                      {activeTab === 'upload' && (
-                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
-                      )}
-                    </button>
-                  </nav>
+                  {/* Tab Navigation - show when threadId exists */}
+                  {threadId && (
+                    <nav className="flex gap-8 pt-4 pb-4">
+                      <button
+                        onClick={() => setActiveTab('chat')}
+                        className={`
+                          relative py-4 px-1 font-medium transition-all duration-300
+                          ${activeTab === 'chat'
+                            ? 'text-[#1a1a1a]'
+                            : 'text-gray-400 hover:text-gray-600'
+                          }
+                        `}
+                        style={{ fontFamily: 'var(--font-playfair)' }}
+                      >
+                        <span className="text-lg">智能查询</span>
+                        {activeTab === 'chat' && (
+                          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('browse')}
+                        className={`
+                          relative py-4 px-1 font-medium transition-all duration-300
+                          ${activeTab === 'browse'
+                            ? 'text-[#1a1a1a]'
+                            : 'text-gray-400 hover:text-gray-600'
+                          }
+                        `}
+                        style={{ fontFamily: 'var(--font-playfair)' }}
+                      >
+                        <span className="text-lg">浏览数据集</span>
+                        {activeTab === 'browse' && (
+                          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('upload')}
+                        className={`
+                          relative py-4 px-1 font-medium transition-all duration-300
+                          ${activeTab === 'upload'
+                            ? 'text-[#1a1a1a]'
+                            : 'text-gray-400 hover:text-gray-600'
+                          }
+                        `}
+                        style={{ fontFamily: 'var(--font-playfair)' }}
+                      >
+                        <span className="text-lg">上传与分析</span>
+                        {activeTab === 'upload' && (
+                          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#c75b39] transform scale-x-100 transition-transform duration-300" />
+                        )}
+                      </button>
+                    </nav>
+                  )}
                 </div>
               </div>
 

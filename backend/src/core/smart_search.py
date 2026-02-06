@@ -46,7 +46,7 @@ class SmartSearchService:
         logger.info(f"智能搜索: filters={filters}, sort={sort_preference}, limit={limit}")
 
         # 1. 获取所有数据集（对于<500个数据集，全量加载很快）
-        all_datasets = self.repository.list_all()
+        all_datasets = await self.repository.list_all()
         logger.info(f"加载数据集: {len(all_datasets)}个")
 
         # 2. 使用FilterExecutor应用动态过滤（替换硬编码逻辑）

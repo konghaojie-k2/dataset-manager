@@ -682,3 +682,120 @@ class ChatService:
         if session_id in self.sessions:
             del self.sessions[session_id]
             logger.info(f"清除会话: {session_id}")
+
+    async def submit_form(
+        self,
+        session_id: str,
+        form_id: str,
+        data: Dict[str, Any]
+    ) -> ChatResponse:
+        """提交A2UI表单
+
+        Args:
+            session_id: 会话ID
+            form_id: 表单ID
+            data: 表单数据
+
+        Returns:
+            ChatResponse: 聊天响应
+        """
+        try:
+            logger.info(f"处理表单提交: session_id={session_id}, form_id={form_id}, data={data}")
+
+            # 1. 获取会话
+            session = self._get_or_create_session(session_id)
+
+            # 2. 构造搜索查询（将表单数据转为过滤条件）
+            filters = self._convert_form_data_to_filters(data)
+            sort_preference = data.get("sort_preference", "相关性优先")
+
+            # 3. 执行搜索
+            datasets = await self.smart_search.search_datasets(
+                filters=filters,
+                sort_preference=sort_preference,
+                limit=10
+            )
+
+            # 4. 如果没有结果，尝试语义搜索
+            if len(datasets) == 0:
+                logger.info("表单过滤无结果，启用 LLM 语义搜索")
+                # 从表单数据构造查询文本
+                query_parts = []
+                for key, value in data.items():
+                    if value is not None and value != "":
+                        query_parts.append(f"{key}: {value}")
+                query_text = ", ".join(query_parts)
+
+                datasets = await self._semantic_search(
+                    user_query=query_text,
+                    filters=filters,
+                    limit=10
+                )
+
+            # 5. 添加搜索结果到历史
+            search_query = f"表单筛选: {data}"
+            session.add_search_result(search_query, datasets)
+
+            # 6. 添加助手回复到历史
+            if datasets:
+                response_message = f"根据您的筛选条件，找到 {len(datasets)} 个匹配的数据集。"
+            else:
+                response_message = "未找到匹配的数据集。尝试调整筛选条件。"
+
+            session.add_message(MessageRole.ASSISTANT, response_message)
+
+            # 7. 构建响应
+            return ChatResponse(
+                type=ResponseType.SEARCH_RESULTS,
+                message=response_message,
+                datasets=datasets,
+                session_id=session.session_id,
+                total_results=len(datasets),
+                search_query=search_query
+            )
+
+        except Exception as e:
+            logger.error(f"处理表单提交失败: {e}", exc_info=True)
+            return ChatResponse(
+                type=ResponseType.ERROR,
+                message=f"处理表单提交时出错，请重试。错误详情: {str(e)}",
+                session_id=session_id,
+                datasets=[]
+            )
+
+    def _convert_form_data_to_filters(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """将表单数据转换为搜索过滤条件
+
+        Args:
+            data: 表单数据
+
+        Returns:
+            Dict: 过滤条件
+        """
+        filters = {}
+
+        # 行业选择
+        if data.get("industry"):
+            filters["industry"] = data["industry"]
+
+        # 质量分数范围
+        if data.get("quality_score"):
+            filters["quality_min_score"] = int(data["quality_score"])
+
+        # 数据规模
+        if data.get("data_scale"):
+            filters["data_scale"] = data["data_scale"]
+
+        # 标签多选
+        if data.get("tags"):
+            if isinstance(data["tags"], list):
+                filters["tags"] = data["tags"]
+            else:
+                filters["tags"] = [data["tags"]]
+
+        # 日期范围
+        if data.get("date_range"):
+            filters["upload_date_from"] = data["date_range"].get("from")
+            filters["upload_date_to"] = data["date_range"].get("to")
+
+        return filters

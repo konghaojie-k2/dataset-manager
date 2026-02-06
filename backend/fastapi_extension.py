@@ -90,11 +90,13 @@ def create_extension_app() -> FastAPI:
         from src.server.api.v1.lineage import router as lineage_router
         from src.server.api.v1.tags import router as tags_router
         from src.server.api.v1.version_control import router as version_control_router
+        from src.server.api.v1.chat import router as chat_router
 
         app.include_router(reports_router)  # 不添加 prefix
         app.include_router(lineage_router)
         app.include_router(tags_router)
         app.include_router(version_control_router)
+        app.include_router(chat_router)
         logger.info("其他路由已注册")
     except Exception as e:
         logger.warning(f"部分路由导入失败: {e}")

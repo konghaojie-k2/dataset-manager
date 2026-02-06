@@ -457,3 +457,109 @@ export const lineageAPI = {
     return response.json();
   },
 };
+
+// ===== A2UI 表单类型 =====
+
+export interface A2UIField {
+  name: string;
+  type: 'text' | 'select' | 'multiselect' | 'range' | 'date_range' | 'toggle';
+  label: string;
+  placeholder?: string;
+  options?: Array<{ value: string; label: string }>;
+  required?: boolean;
+  validation?: Record<string, any>;
+  default?: any;
+}
+
+export interface A2UIAction {
+  id: string;
+  type: 'submit' | 'button' | 'cancel';
+  label: string;
+  primary?: boolean;
+}
+
+export interface A2UISchema {
+  version: string;
+  form_type: string;
+  title: string;
+  description: string;
+  fields: A2UIField[];
+  actions: A2UIAction[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  a2ui_form?: A2UISchema;
+  metadata?: Record<string, any>;
+}
+
+export interface ChatResponse {
+  type: 'search_results' | 'clarification_needed' | 'error' | 'info';
+  message: string;
+  datasets?: Dataset[];
+  a2ui_form?: A2UISchema;
+  session_id: string;
+}
+
+// ===== Chat API =====
+
+export const chatAPI = {
+  /**
+   * 发送聊天消息
+   */
+  send: async (sessionId: string, content: string): Promise<ChatResponse> => {
+    const response = await fetch(`${API_BASE}/api/v1/chat/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, content }),
+    });
+    if (!response.ok) {
+      throw new Error(`发送消息失败: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * 提交 A2UI 表单
+   */
+  submitForm: async (
+    sessionId: string,
+    formId: string,
+    data: Record<string, any>
+  ): Promise<ChatResponse> => {
+    const response = await fetch(`${API_BASE}/api/v1/chat/form-submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, form_id: formId, data }),
+    });
+    if (!response.ok) {
+      throw new Error(`表单提交失败: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * 获取聊天历史
+   */
+  getHistory: async (sessionId: string): Promise<{ messages: ChatMessage[] }> => {
+    const response = await fetch(`${API_BASE}/api/v1/chat/history/${sessionId}`);
+    if (!response.ok) {
+      throw new Error(`获取历史失败: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * 清除会话
+   */
+  clearSession: async (sessionId: string): Promise<void> => {
+    const response = await fetch(`${API_BASE}/api/v1/chat/session/${sessionId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error(`清除会话失败: ${response.statusText}`);
+    }
+  },
+};

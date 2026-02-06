@@ -105,7 +105,7 @@ class SearchService:
     def __init__(self):
         """初始化搜索服务"""
         self.llm = get_reasoning_llm()
-        logger.info("LLM增强搜索服务初始化完成")
+        logger.debug("LLM增强搜索服务初始化完成")
     
     def _format_datasets_info(self, datasets: List[DatasetMetadata]) -> List[Dict[str, Any]]:
         """格式化数据集信息（只包含关键字段，减少token消耗）
@@ -180,7 +180,7 @@ class SearchService:
         Returns:
             Dict: 搜索结果，包含type字段（count/list/not_found/message）
         """
-        logger.info(f"开始LLM增强搜索: query={query}, datasets_count={len(datasets)}")
+        logger.debug(f"开始LLM增强搜索: query={query}, datasets_count={len(datasets)}")
         
         # 处理空数据库情况
         if not datasets:
@@ -198,7 +198,7 @@ class SearchService:
         # 对于统计查询，如果数据集数量很大，可以直接计算，不调用LLM
         is_statistical_query = any(keyword in query.lower() for keyword in ["几个", "多少", "总数", "数量", "count", "how many"])
         if is_statistical_query and len(datasets) > 100:
-            logger.info(f"统计查询且数据集较多，直接返回数量: {len(datasets)}")
+            logger.debug(f"统计查询且数据集较多，直接返回数量: {len(datasets)}")
             return {
                 "type": "count",
                 "value": len(datasets),
@@ -211,7 +211,7 @@ class SearchService:
         
         # 调用LLM进行推理
         try:
-            logger.info("调用LLM进行智能搜索...")
+            logger.debug("调用LLM进行智能搜索...")
             response = await self.llm.ainvoke(prompt)
             response_content = response.content if hasattr(response, 'content') else str(response)
             
@@ -220,7 +220,7 @@ class SearchService:
             # 解析LLM返回结果
             llm_result = self._parse_llm_result(response_content)
             
-            logger.info(f"LLM搜索完成: type={llm_result.get('type')}")
+            logger.debug(f"LLM搜索完成: type={llm_result.get('type')}")
             return llm_result
             
         except Exception as e:
@@ -261,7 +261,19 @@ class SearchService:
         elif result_type == "list":
             # 列表类型：返回匹配的数据集列表
             dataset_ids = llm_result.get("datasets", [])
+            
+            # 确保dataset_ids是列表格式
+            if not isinstance(dataset_ids, list):
+                logger.warning(f"LLM返回的datasets不是列表格式: {type(dataset_ids)}, value: {dataset_ids}")
+                dataset_ids = []
+            
+            # 清理数据集ID格式（去除空格，转换为字符串）
+            dataset_ids = [str(ds_id).strip() for ds_id in dataset_ids if ds_id]
+            
+            logger.debug(f"处理搜索结果: type=list, dataset_ids={dataset_ids}, count={len(dataset_ids)}")
+            
             if not dataset_ids:
+                logger.warning(f"LLM返回的datasets列表为空，返回not_found")
                 return {
                     "type": "not_found",
                     "message": "未找到匹配的数据集",
@@ -270,34 +282,94 @@ class SearchService:
             
             # 创建ID到数据集的映射
             id_to_dataset = {ds.id: ds for ds in all_datasets}
+            logger.debug(f"可用数据集总数: {len(all_datasets)}, ID映射表大小: {len(id_to_dataset)}")
+            logger.debug(f"可用数据集ID列表（前10个）: {list(id_to_dataset.keys())[:10]}")
+            logger.debug(f"LLM返回的数据集ID: {dataset_ids}")
             
             # 获取匹配的数据集
             matched_datasets = []
+            not_found_ids = []
             for dataset_id in dataset_ids[:limit]:
+                logger.debug(f"检查数据集ID: {dataset_id}, 类型: {type(dataset_id)}")
+                # 尝试多种匹配方式
+                matched_ds = None
                 if dataset_id in id_to_dataset:
-                    ds = id_to_dataset[dataset_id]
-                    matched_datasets.append({
-                        "id": ds.id,
-                        "name": ds.name,
-                        "description": ds.description,
-                        "tags": ds.tags or [],
-                        "industry": ds.industrial_domain or ds.industry,
-                        "file_size": ds.file_size,
-                        "upload_time": ds.upload_time.isoformat() if ds.upload_time else None,
-                        "processing_status": ds.processing_status,
-                        "row_count": ds.row_count,
-                        "column_count": ds.column_count,
-                    })
+                    matched_ds = id_to_dataset[dataset_id]
+                else:
+                    # 尝试字符串匹配（去除空格、大小写不敏感）
+                    dataset_id_clean = str(dataset_id).strip()
+                    for ds_id, ds in id_to_dataset.items():
+                        if str(ds_id).strip().lower() == dataset_id_clean.lower():
+                            matched_ds = ds
+                            logger.debug(f"通过字符串匹配找到数据集: {dataset_id} -> {ds_id}")
+                            break
+                
+                if matched_ds:
+                    ds = matched_ds
+                    try:
+                        # 处理industry字段：industrial_domain可能是字典
+                        industry_value = ds.industry
+                        if ds.industrial_domain:
+                            if isinstance(ds.industrial_domain, dict):
+                                industry_value = ds.industrial_domain.get("industry", ds.industry) or ds.industry
+                            else:
+                                industry_value = ds.industrial_domain
+                        
+                        # 获取row_count和column_count
+                        row_count = None
+                        column_count = None
+                        if ds.quality_metrics:
+                            row_count = ds.quality_metrics.total_rows
+                            column_count = ds.quality_metrics.total_columns
+                        else:
+                            # 如果没有quality_metrics，从columns获取column_count
+                            column_count = len(ds.columns) if ds.columns else 0
+                        
+                        matched_datasets.append({
+                            "id": ds.id,
+                            "name": ds.name,
+                            "description": ds.description,
+                            "tags": ds.tags or [],
+                            "industry": industry_value,
+                            "file_size": ds.file_size,
+                            "upload_time": ds.upload_time.isoformat() if ds.upload_time else None,
+                            "processing_status": ds.processing_status,
+                            "row_count": row_count,
+                            "column_count": column_count,
+                        })
+                        logger.debug(f"成功匹配数据集: {ds.id} - {ds.name}")
+                    except Exception as e:
+                        logger.error(f"构建matched_dataset时出错: {e}", exc_info=True)
+                        not_found_ids.append(dataset_id)
+                else:
+                    not_found_ids.append(dataset_id)
+                    logger.warning(f"数据集ID {dataset_id} 不在可用数据集列表中，可用ID: {list(id_to_dataset.keys())[:5]}")
+            
+            if not_found_ids:
+                logger.warning(f"以下数据集ID未找到: {not_found_ids}")
             
             count = llm_result.get("count", len(matched_datasets))
+            message = llm_result.get("message", f"找到{len(matched_datasets)}个匹配的数据集")
             
-            return {
-                "type": "list",
-                "datasets": matched_datasets,
-                "count": len(matched_datasets),
-                "total_matched": count,
-                "query": query
-            }
+            # 如果匹配到了数据集，返回结果；否则返回not_found
+            if matched_datasets:
+                logger.info(f"成功匹配 {len(matched_datasets)} 个数据集")
+                return {
+                    "type": "list",
+                    "datasets": matched_datasets,
+                    "count": len(matched_datasets),
+                    "total_matched": count,
+                    "message": message,
+                    "query": query
+                }
+            else:
+                logger.warning(f"LLM返回了数据集ID列表，但所有ID都不在可用数据集中")
+                return {
+                    "type": "not_found",
+                    "message": "未找到匹配的数据集",
+                    "query": query,
+                    "reasoning": f"LLM返回了数据集ID列表 {dataset_ids}，但这些ID不在可用数据集列表中"
+                }
         
         elif result_type == "not_found":
             # 未找到类型
@@ -338,7 +410,7 @@ class SearchService:
         Returns:
             Dict: JSON格式的搜索结果
         """
-        logger.info("使用传统关键词匹配搜索")
+        logger.debug("使用传统关键词匹配搜索")
         
         datasets = all_datasets
         
@@ -398,8 +470,8 @@ class SearchService:
                 "file_size": ds.file_size,
                 "upload_time": ds.upload_time.isoformat() if ds.upload_time else None,
                 "processing_status": ds.processing_status,
-                "row_count": ds.row_count,
-                "column_count": ds.column_count,
+                "row_count": ds.quality_metrics.total_rows if ds.quality_metrics else None,
+                "column_count": ds.quality_metrics.total_columns if ds.quality_metrics else (len(ds.columns) if ds.columns else 0),
             })
         
         if not results:

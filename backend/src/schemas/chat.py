@@ -139,6 +139,7 @@ class A2UIAction(BaseModel):
 class A2UISchema(BaseModel):
     """A2UI表单Schema"""
     version: str = Field(default="1.0", description="版本")
+    form_id: str = Field(default="default", description="表单唯一标识")
     form_type: str = Field(description="表单类型: search_refinement|filter_builder|preference_setting")
     title: str = Field(description="表单标题")
     description: str = Field(description="表单描述")
@@ -150,6 +151,13 @@ class A2UIFormSubmission(BaseModel):
     """A2UI表单提交"""
     form_id: str = Field(description="表单ID")
     session_id: str = Field(description="会话ID")
+    data: Dict[str, Any] = Field(description="表单数据")
+
+
+class FormSubmitRequest(BaseModel):
+    """表单提交请求"""
+    session_id: str = Field(description="会话ID")
+    form_id: str = Field(description="表单ID")
     data: Dict[str, Any] = Field(description="表单数据")
 
 
