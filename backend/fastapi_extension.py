@@ -20,12 +20,23 @@ from typing import Optional
 from pydantic import BaseModel
 import asyncio
 import json
+import os
 from datetime import datetime
 
 from src.config.settings import get_settings, setup_logging
 from src.core.dataset_service_factory import create_dataset_service
 from src.server.dependencies import set_dataset_service, set_tag_service
 from src.core.tag_service import TagService
+
+# My-Auth 导入
+try:
+    from myauth import AuthFramework, init_config
+    from myauth.router import create_auth_router
+    from myauth.agent_router import create_agent_router
+    MYAUTH_AVAILABLE = True
+except ImportError:
+    MYAUTH_AVAILABLE = False
+    logger.warning("my-auth 未安装，认证功能将不可用")
 
 
 # ===== 请求模型定义 =====
@@ -64,6 +75,50 @@ def create_extension_app() -> FastAPI:
         version="2.0.0"
     )
 
+    # ===== My-Auth 初始化 =====
+    auth = None
+    if MYAUTH_AVAILABLE:
+        try:
+            # 加载配置
+            auth_config = init_config("config.toml")
+
+            # 初始化认证框架
+            auth = AuthFramework(
+                db_url=auth_config.database_url,
+                secret=auth_config.jwt_secret,
+                use_sqlite=True,
+                admin_email=auth_config.admin_email,
+                admin_password=auth_config.admin_password,
+                # 钉钉配置（默认启用）
+                dingtalk_app_key=os.getenv("DINGTALK_APP_KEY"),
+                dingtalk_app_secret=os.getenv("DINGTALK_APP_SECRET"),
+                dingtalk_enabled=os.getenv("DINGTALK_ENABLED", "false").lower() == "true",
+            )
+            logger.info("My-Auth 认证框架已初始化")
+        except Exception as e:
+            logger.error(f"My-Auth 初始化失败: {e}")
+            auth = None
+
+    @app.on_event("startup")
+    async def startup_event():
+        """启动时初始化"""
+        if auth:
+            try:
+                await auth.init(app)
+                logger.info("My-Auth 数据库已初始化")
+            except Exception as e:
+                logger.error(f"My-Auth 启动失败: {e}")
+
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """关闭时清理"""
+        if auth:
+            try:
+                await auth.close()
+                logger.info("My-Auth 已关闭")
+            except Exception as e:
+                logger.error(f"My-Auth 关闭失败: {e}")
+
     # CORS 配置
     app.add_middleware(
         CORSMiddleware,
@@ -100,6 +155,17 @@ def create_extension_app() -> FastAPI:
         logger.info("其他路由已注册")
     except Exception as e:
         logger.warning(f"部分路由导入失败: {e}")
+
+    # ===== 注册 My-Auth 路由 =====
+    if auth and MYAUTH_AVAILABLE:
+        try:
+            auth_router = create_auth_router(auth)
+            agent_router = create_agent_router(auth)
+            app.include_router(auth_router)
+            app.include_router(agent_router)
+            logger.info("My-Auth 路由已注册")
+        except Exception as e:
+            logger.warning(f"My-Auth 路由注册失败: {e}")
 
     # ===== 静态文件服务 =====
 

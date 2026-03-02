@@ -28,6 +28,7 @@ dependencies = [
     "httpx>=0.25.0",
     "uvicorn>=0.34.2",
     "langgraph-cli[inmem]>=0.4.11",
+    "aiosqlite>=0.22.1",
 ]
 [tool.uv]
 index-url = "https://mirrors.aliyun.com/pypi/simple/"

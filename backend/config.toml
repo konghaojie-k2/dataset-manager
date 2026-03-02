@@ -1,0 +1,18 @@
+[app]
+name = "Dataset Manager"
+version = "2.0.0"
+debug = true
+
+[jwt]
+access_token_expire = 30
+refresh_token_expire = 1440
+
+[database]
+pool_size = 5
+
+[cors]
+origins = ["http://localhost:3000", "http://localhost:3003"]
+
+[admin]
+email = "admin@example.com"
+password = "admin123"
