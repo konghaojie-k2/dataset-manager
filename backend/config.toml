@@ -16,3 +16,7 @@ origins = ["http://localhost:3000", "http://localhost:3003"]
 [admin]
 email = "admin@example.com"
 password = "admin123"
+
+[dingtalk]
+enabled = true
+redirect_uri = "http://localhost:3000/auth/dingtalk/callback"

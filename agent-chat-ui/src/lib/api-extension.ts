@@ -215,11 +215,32 @@ export const datasetAPI = {
 
   /**
    * 获取所有分析结果（包括基础信息、业务分析、质量分析、增强分析）
-   */
+    */
   getAnalysisResults: async (datasetId: string): Promise<AnalysisResult> => {
     const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/analysis-results`);
     if (!response.ok) {
       throw new Error(`获取分析结果失败: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * 转换为 Parquet 格式
+    */
+  convertToParquet: async (datasetId: string, compression: 'snappy' | 'gzip' | 'brotli' | 'lz4' = 'snappy'): Promise<{
+    success: boolean;
+    message: string;
+    dataset_id: string;
+    parquet_path: string;
+    original_size_mb: number;
+    compressed_size_mb: number;
+    compression_ratio: number;
+  }> => {
+    const response = await fetch(`${API_BASE}/api/v1/datasets/${datasetId}/convert-parquet?compression=${compression}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error(`转换失败: ${response.statusText}`);
     }
     return response.json();
   },

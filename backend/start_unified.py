@@ -56,6 +56,9 @@ async def start_langgraph():
     env["BROWSER"] = "none"
     # 设置 UTF-8 编码
     env["PYTHONIOENCODING"] = "utf-8"
+    # 强制 Python 使用 UTF-8
+    env["LANG"] = "en_US.UTF-8"
+    env["LC_ALL"] = "en_US.UTF-8"
 
     if langgraph_exe:
         # 使用系统 langgraph CLI

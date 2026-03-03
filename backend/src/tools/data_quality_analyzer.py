@@ -14,43 +14,49 @@ from ..schemas.data_quality import (
     ParameterQualityIssue, ParameterColumnQuality, CategoryQualityIssue,
     CategoryColumnQuality, DataQualityReport
 )
+from ..core.fast_data_processor import create_fast_processor, FastDataProcessor
 
 
 class DataQualityAnalyzer:
-    """数据质量分析器"""
+    """数据质量分析器（已优化）"""
     
     def __init__(self):
         """初始化数据质量分析器"""
-        self.data: Optional[pd.DataFrame] = None
+        self.data: Optional[pd.DataFrame] = None  # 保留兼容性
+        self.processor: Optional[FastDataProcessor] = None
         self.column_types: Dict[str, ColumnType] = {}
         
-    def load_data(self, file_path: Path) -> pd.DataFrame:
-        """加载数据"""
-        try:
-            if file_path.suffix.lower() == '.csv':
-                self.data = pd.read_csv(file_path)
-            elif file_path.suffix.lower() in ['.xlsx', '.xls']:
-                self.data = pd.read_excel(file_path)
-            elif file_path.suffix.lower() == '.zip':
-                # 处理ZIP文件，需要先提取CSV
-                from .file_processor import FileProcessor
-                processor = FileProcessor()
-                csv_files = processor.extract_csv_files(file_path)
-                if not csv_files:
-                    raise ValueError("ZIP文件中未找到CSV文件")
-                # 使用第一个CSV文件
-                self.data = processor.load_csv_data(csv_files[0])
-                # 清理临时文件
-                processor.cleanup_extracted_files(file_path)
-            else:
-                raise ValueError(f"不支持的文件格式: {file_path.suffix}")
+    def load_data(self, file_path: Path, engine_type: Optional[str] = None) -> pd.DataFrame:
+        """加载数据（使用 FastDataProcessor）
+        
+        Args:
+            file_path: 文件路径
+            engine_type: 引擎类型（可选，自动选择）
             
-            logger.info(f"成功加载数据: {self.data.shape}")
+        Returns:
+            pd.DataFrame: 加载的数据
+        """
+        try:
+            # 创建快速处理器
+            self.processor = create_fast_processor(file_path, engine_type)
+            
+            # 加载数据（使用采样）
+            self.data = self.processor.load_sample()
+            
+            logger.info(f"成功加载数据，引擎: {self.processor.engine_type}")
             return self.data
             
         except Exception as e:
             logger.error(f"数据加载失败: {e}")
             raise
+    
+    def close(self):
+        """关闭处理器，释放资源"""
+        if self.processor:
+            self.processor.close()
+            self.processor = None
+        self.data = None
+        logger.info("DataQualityAnalyzer 已关闭")
     
     def set_column_types(self, column_types: Dict[str, ColumnType]):
         """设置列类型"""

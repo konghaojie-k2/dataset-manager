@@ -2,122 +2,120 @@
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 from loguru import logger
 
+from ..core.fast_data_processor import create_fast_processor, FastDataProcessor
+
 
 class DataAnalyzer:
-    """数据分析工具类"""
+    """数据分析工具类（已优化）"""
     
     def __init__(self):
         """初始化数据分析器"""
-        self.data: Optional[pd.DataFrame] = None
+        self.data: Optional[pd.DataFrame] = None  # 保留兼容性
+        self.processor: Optional[FastDataProcessor] = None
         self.analysis_results: Dict[str, Any] = {}
     
-    def load_data(self, file_path: Path, nrows: Optional[int] = None) -> pd.DataFrame:
-        """加载数据
+    def load_data(self, file_path: Path, nrows: Optional[int] = None, engine_type: Optional[str] = None) -> pd.DataFrame:
+        """加载数据（使用 FastDataProcessor）
         
         Args:
             file_path: 文件路径
-            nrows: 限制加载的行数
+            nrows: 采样行数（可选）
+            engine_type: 引擎类型（可选，自动选择）
             
         Returns:
             pd.DataFrame: 加载的数据
         """
         try:
-            if file_path.suffix.lower() == '.csv':
-                if nrows:
-                    self.data = pd.read_csv(file_path, nrows=nrows)
-                else:
-                    self.data = pd.read_csv(file_path)
-            elif file_path.suffix.lower() in ['.xlsx', '.xls']:
-                self.data = pd.read_excel(file_path)
-            else:
-                raise ValueError(f"不支持的文件格式: {file_path.suffix}")
+            # 创建快速处理器
+            self.processor = create_fast_processor(file_path, engine_type)
             
-            logger.info(f"成功加载数据: {self.data.shape}")
+            # 加载数据
+            if nrows:
+                self.data = self.processor.load_sample()
+            else:
+                # 完整数据可能很大，只加载采样用于兼容性
+                self.data = self.processor.load_sample()
+            
+            logger.info(f"成功加载数据，引擎: {self.processor.engine_type}")
             return self.data
             
         except Exception as e:
             logger.error(f"数据加载失败: {e}")
             raise
     
+    def close(self):
+        """关闭处理器，释放资源"""
+        if self.processor:
+            self.processor.close()
+            self.processor = None
+        self.data = None
+        logger.info("DataAnalyzer 已关闭")
+    
     def get_basic_info(self) -> Dict[str, Any]:
-        """获取基础信息
+        """获取基础信息（使用 FastDataProcessor）
         
         Returns:
             Dict[str, Any]: 基础信息
         """
-        if self.data is None:
+        if self.processor is None:
             raise ValueError("请先加载数据")
         
+        # 使用 processor 的基础信息
+        processor_info = self.processor.get_basic_info()
+        
+        # 构建兼容的返回格式
         info = {
-            "shape": self.data.shape,
-            "columns": list(self.data.columns),
-            "dtypes": {col: str(dtype) for col, dtype in self.data.dtypes.to_dict().items()},
-            "memory_usage": int(self.data.memory_usage(deep=True).sum()),
-            "null_counts": {col: int(count) for col, count in self.data.isnull().sum().to_dict().items()},
-            "null_percentages": {col: float(pct) for col, pct in (self.data.isnull().sum() / len(self.data) * 100).to_dict().items()}
+            "shape": processor_info["shape"],
+            "columns": processor_info["columns"],
+            "dtypes": processor_info["dtypes"],
+            "memory_usage": int(self.data.memory_usage(deep=True).sum()) if self.data is not None else 0,
+            "null_counts": processor_info["null_counts"],
+            "null_percentages": {col: float((count / processor_info["shape"][0]) * 100) if processor_info["shape"][0] > 0 else 0
+                                    for col, count in processor_info["null_counts"].items()},
+            "file_size": processor_info["file_size"],
+            "file_size_mb": processor_info["file_size_mb"],
+            "engine_type": processor_info["engine_type"]
         }
         
         self.analysis_results["basic_info"] = info
         return info
     
     def get_statistical_summary(self) -> Dict[str, Any]:
-        """获取统计摘要
+        """获取统计摘要（使用 FastDataProcessor）
         
         Returns:
             Dict[str, Any]: 统计摘要
         """
-        if self.data is None:
+        if self.processor is None:
             raise ValueError("请先加载数据")
         
-        # 数值型列统计
-        numeric_cols = self.data.select_dtypes(include=[np.number]).columns
-        numeric_summary = {}
+        # 使用 processor 的统计摘要
+        processor_summary = self.processor.get_statistical_summary()
         
-        if len(numeric_cols) > 0:
-            desc = self.data[numeric_cols].describe()
-            # 转换为Python原生类型
-            numeric_summary = {
-                col: {stat: float(val) if pd.notna(val) else None 
-                      for stat, val in desc[col].items()}
-                for col in desc.columns
-            }
-        
-        # 分类型列统计
-        categorical_cols = self.data.select_dtypes(include=['object', 'category']).columns
-        categorical_summary = {}
-        
-        for col in categorical_cols:
-            value_counts = self.data[col].value_counts().head(10)
-            mode_val = self.data[col].mode().iloc[0] if not self.data[col].mode().empty else None
+        # 添加分类型列的统计信息（基于 self.data）
+        if self.data is not None:
+            categorical_cols = self.data.select_dtypes(include=['object', 'category']).columns
+            categorical_summary = processor_summary.get("categorical_summary", {})
             
-            categorical_summary[col] = {
-                "unique_count": int(self.data[col].nunique()),
-                "top_values": {str(k): int(v) for k, v in value_counts.to_dict().items()},
-                "mode": str(mode_val) if mode_val is not None else None
-            }
+            for col in categorical_cols:
+                if col not in categorical_summary:
+                    value_counts = self.data[col].value_counts().head(10)
+                    mode_val = self.data[col].mode().iloc[0] if not self.data[col].mode().empty else None
+                    
+                    categorical_summary[col] = {
+                        "unique_count": int(self.data[col].nunique()),
+                        "top_values": {str(k): int(v) for k, v in value_counts.to_dict().items()},
+                        "mode": str(mode_val) if mode_val is not None else None
+                    }
+            
+            processor_summary["categorical_summary"] = categorical_summary
         
-        # 相关性矩阵
-        correlation_matrix = {}
-        if len(numeric_cols) > 1:
-            corr = self.data[numeric_cols].corr()
-            correlation_matrix = {
-                col1: {col2: float(val) if pd.notna(val) else None 
-                       for col2, val in corr[col1].items()}
-                for col1 in corr.columns
-            }
-        
-        summary = {
-            "numeric_summary": numeric_summary,
-            "categorical_summary": categorical_summary,
-            "correlation_matrix": correlation_matrix
-        }
-        
-        self.analysis_results["statistical_summary"] = summary
-        return summary
+        self.analysis_results["statistical_summary"] = processor_summary
+        return processor_summary
     
     def detect_outliers(self, method: str = "iqr") -> Dict[str, Any]:
         """检测异常值
@@ -202,7 +200,7 @@ class DataAnalyzer:
         return quality_report
     
     def get_column_analysis(self, column_name: str) -> Dict[str, Any]:
-        """获取单列详细分析
+        """获取单列详细分析（使用 FastDataProcessor）
         
         Args:
             column_name: 列名
@@ -210,47 +208,44 @@ class DataAnalyzer:
         Returns:
             Dict[str, Any]: 列分析结果
         """
-        if self.data is None:
+        if self.processor is None:
             raise ValueError("请先加载数据")
         
-        if column_name not in self.data.columns:
-            raise ValueError(f"列 '{column_name}' 不存在")
+        # 使用 processor 的列分析
+        processor_col_info = self.processor.get_column_analysis(column_name)
         
-        col_data = self.data[column_name]
+        # 构建兼容的返回格式（包含详细的统计信息）
+        analysis = processor_col_info.copy()
         
-        analysis = {
-            "name": column_name,
-            "dtype": str(col_data.dtype),
-            "null_count": int(col_data.isnull().sum()),
-            "null_percentage": float((col_data.isnull().sum() / len(col_data)) * 100),
-            "unique_count": int(col_data.nunique()),
-            "unique_percentage": float((col_data.nunique() / len(col_data)) * 100),
-            "sample_values": [str(val) for val in col_data.dropna().head(10).tolist()]
-        }
-        
-        # 数值型列的额外分析
-        if pd.api.types.is_numeric_dtype(col_data):
-            analysis.update({
-                "mean": float(col_data.mean()) if pd.notna(col_data.mean()) else None,
-                "median": float(col_data.median()) if pd.notna(col_data.median()) else None,
-                "std": float(col_data.std()) if pd.notna(col_data.std()) else None,
-                "min": float(col_data.min()) if pd.notna(col_data.min()) else None,
-                "max": float(col_data.max()) if pd.notna(col_data.max()) else None,
-                "skewness": float(col_data.skew()) if pd.notna(col_data.skew()) else None,
-                "kurtosis": float(col_data.kurtosis()) if pd.notna(col_data.kurtosis()) else None
-            })
-        
-        # 分类型列的额外分析
-        else:
-            value_counts = col_data.value_counts()
-            mode_val = col_data.mode().iloc[0] if not col_data.mode().empty else None
-            avg_length = col_data.dropna().astype(str).str.len().mean()
+        # 添加额外的统计信息（基于 self.data）
+        if self.data is not None and column_name in self.data.columns:
+            col_data = self.data[column_name]
             
-            analysis.update({
-                "top_values": {str(k): int(v) for k, v in value_counts.head(10).to_dict().items()},
-                "mode": str(mode_val) if mode_val is not None else None,
-                "avg_length": float(avg_length) if pd.notna(avg_length) else 0.0
-            })
+            # 计算唯一值百分比
+            analysis["unique_percentage"] = float((col_data.nunique() / len(col_data)) * 100) if len(col_data) > 0 else 0.0
+            
+            # 数值型列的额外分析
+            if pd.api.types.is_numeric_dtype(col_data):
+                analysis.update({
+                    "mean": float(col_data.mean()) if pd.notna(col_data.mean()) else None,
+                    "median": float(col_data.median()) if pd.notna(col_data.median()) else None,
+                    "std": float(col_data.std()) if pd.notna(col_data.std()) else None,
+                    "min": float(col_data.min()) if pd.notna(col_data.min()) else None,
+                    "max": float(col_data.max()) if pd.notna(col_data.max()) else None,
+                    "skewness": float(col_data.skew()) if pd.notna(col_data.skew()) else None,
+                    "kurtosis": float(col_data.kurtosis()) if pd.notna(col_data.kurtosis()) else None
+                })
+            # 分类型列的额外分析
+            else:
+                value_counts = col_data.value_counts()
+                mode_val = col_data.mode().iloc[0] if not col_data.mode().empty else None
+                avg_length = col_data.dropna().astype(str).str.len().mean()
+                
+                analysis.update({
+                    "top_values": {str(k): int(v) for k, v in value_counts.head(10).to_dict().items()},
+                    "mode": str(mode_val) if mode_val is not None else None,
+                    "avg_length": float(avg_length) if pd.notna(avg_length) else 0.0
+                })
         
         return analysis
     

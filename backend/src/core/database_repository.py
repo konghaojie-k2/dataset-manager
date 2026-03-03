@@ -133,6 +133,21 @@ class DatabaseRepository:
                     )
                 """)
                 
+                # 创建用户表（支持OAuth登录）
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email TEXT UNIQUE,
+                        username TEXT NOT NULL,
+                        password_hash TEXT,
+                        dingtalk_id TEXT UNIQUE,
+                        avatar TEXT,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
                 # 创建索引
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_datasets_name ON datasets (name)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_datasets_industry ON datasets (industry)")

@@ -26,9 +26,14 @@ dependencies = [
     "seaborn>=0.13.2",
     "supabase>=2.0.0",
     "httpx>=0.25.0",
+    "pyjwt>=2.8.0",
+    "email-validator>=2.0.0",
     "uvicorn>=0.34.2",
     "langgraph-cli[inmem]>=0.4.11",
     "aiosqlite>=0.22.1",
+    "dask[complete]>=2024.1.0",
+    "polars>=0.20.0",
+    "pyarrow>=14.0.0",
 ]
 [tool.uv]
 index-url = "https://mirrors.aliyun.com/pypi/simple/"

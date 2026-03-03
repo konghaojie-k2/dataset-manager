@@ -3,6 +3,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from fastapi.responses import JSONResponse, FileResponse
+from pathlib import Path
 from loguru import logger
 
 from src.schemas.dataset import (
@@ -12,6 +13,7 @@ from src.schemas.dataset import (
 )
 from src.core.dataset_service import DatasetService
 from .dependencies import get_dataset_service
+from pydantic import BaseModel
 
 
 # 创建路由器
@@ -462,9 +464,140 @@ async def get_quality_analysis_results(
     try:
         results = await service.get_quality_analysis_results(dataset_id)
         return results
-        
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"获取质量分析结果失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== 请求模型定义 =====
+
+class CompressionMethodRequest(BaseModel):
+    """压缩方法请求"""
+    method: str = "gzip"  # gzip, bzip2, xz
+
+
+# ===== Parquet 转换端点 =====
+
+@router.post("/datasets/{dataset_id}/convert-parquet")
+async def convert_to_parquet(
+    dataset_id: str,
+    compression: str = "snappy",
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """转换为 Parquet 格式
+    
+    Args:
+        dataset_id: 数据集ID
+        compression: 压缩算法 (snappy/gzip/brotli/lz4)
+        service: 数据集服务
+        
+    Returns:
+        转换结果
+    """
+    try:
+        from ..core.parquet_converter import ParquetConverter
+        
+        # 获取数据集
+        dataset = service.get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="数据集不存在")
+        
+        # 转换
+        converter = ParquetConverter()
+        parquet_path = converter.convert_to_parquet(
+            Path(dataset.file_path),
+            compression=compression
+        )
+        
+        # 更新元数据
+        dataset.parquet_path = str(parquet_path)
+        service.repository.save(dataset)
+        
+        # 计算压缩率
+        original_size = Path(dataset.file_path).stat().st_size
+        compressed_size = parquet_path.stat().st_size
+        compression_ratio = (1 - compressed_size / original_size) * 100
+        
+        logger.info(f"Parquet 转换成功: {dataset_id}")
+        
+        return {
+            "success": True,
+            "message": "Parquet 转换成功",
+            "dataset_id": dataset_id,
+            "parquet_path": str(parquet_path),
+            "original_size_mb": round(original_size / 1024 / 1024, 2),
+            "compressed_size_mb": round(compressed_size / 1024 / 1024, 2),
+            "compression_ratio": round(compression_ratio, 2)
+        }
+        
+    except ValueError as e:
+        logger.error(f"Parquet 转换失败: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Parquet 转换失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== 文件压缩端点 =====
+
+@router.post("/datasets/{dataset_id}/compress")
+async def compress_dataset(
+    dataset_id: str,
+    request: CompressionMethodRequest,
+    service: DatasetService = Depends(get_dataset_service)
+):
+    """压缩数据集文件
+    
+    Args:
+        dataset_id: 数据集ID
+        request: 压缩方法请求
+        service: 数据集服务
+        
+    Returns:
+        压缩结果
+    """
+    try:
+        from ..core.file_compressor import FileCompressor
+        
+        # 获取数据集
+        dataset = service.get_dataset(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="数据集不存在")
+        
+        # 压缩
+        compressor = FileCompressor()
+        compressed_path = compressor.compress_file(
+            Path(dataset.file_path),
+            method=request.method
+        )
+        
+        # 更新元数据
+        dataset.compressed_path = str(compressed_path)
+        service.repository.save(dataset)
+        
+        # 计算压缩率
+        original_size = Path(dataset.file_path).stat().st_size
+        compressed_size = compressed_path.stat().st_size
+        compression_ratio = (1 - compressed_size / original_size) * 100
+        
+        logger.info(f"文件压缩成功: {dataset_id}")
+        
+        return {
+            "success": True,
+            "message": "文件压缩成功",
+            "dataset_id": dataset_id,
+            "compressed_path": str(compressed_path),
+            "compression_method": request.method,
+            "original_size_mb": round(original_size / 1024 / 1024, 2),
+            "compressed_size_mb": round(compressed_size / 1024 / 1024, 2),
+            "compression_ratio": round(compression_ratio, 2)
+        }
+        
+    except ValueError as e:
+        logger.error(f"文件压缩失败: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"文件压缩失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -39,7 +39,7 @@ class BusinessAnalysisService:
         dataset_name: str,
         user_requirements: str = ""
     ) -> Dict[str, Any]:
-        """执行业务分析（设备识别、业务含义、控制关系）
+        """执行业务分析（设备识别、业务含义、控制关系）- 优化版
         
         Args:
             file_path: 数据文件路径
@@ -47,26 +47,26 @@ class BusinessAnalysisService:
             user_requirements: 用户需求描述
             
         Returns:
-            Dict[str, Any]: 分析结果
+            分析结果
         """
         try:
             logger.info(f"开始业务分析: {dataset_name}")
             
-            # 1. 加载数据
-            self.data_analyzer.data = self.data_analyzer.load_data(file_path)
+            # 1. 加载数据（自动选择引擎，使用采样进行快速分析）
+            self.data_analyzer.load_data(file_path, nrows=1000)  # 使用采样数据，LLM 不需要全量数据
             basic_info = self.data_analyzer.get_basic_info()
             
-            # 2. 识别设备列和时间列
+            # 2. 识别设备列和时间列（基于采样）
             device_time_identification = await self._identify_device_time_columns(
                 dataset_name, basic_info
             )
             
-            # 3. 分析业务含义
+            # 3. 分析业务含义（基于采样）
             business_meaning_analysis = await self._analyze_business_meaning(
                 dataset_name, basic_info, user_requirements
             )
             
-            # 4. 分析控制关系
+            # 4. 分析控制关系（基于采样）
             control_relationships_analysis = await self._analyze_control_relationships(
                 dataset_name, basic_info, business_meaning_analysis, user_requirements
             )
@@ -78,6 +78,19 @@ class BusinessAnalysisService:
                 "control_relationships_analysis": control_relationships_analysis,
                 "statistical_summary": self.data_analyzer.get_statistical_summary(),
                 "errors": []
+            }
+            
+            logger.info(f"业务分析完成: {dataset_name}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"业务分析失败: {e}", exc_info=True)
+            return {
+                "errors": [str(e)],
+                "data_info": {},
+                "device_time_identification": "",
+                "business_meaning_analysis": "",
+                "control_relationships_analysis": ""
             }
             
             logger.info(f"业务分析完成: {dataset_name}")
@@ -302,23 +315,25 @@ class BusinessAnalysisService:
         self,
         dataset_id: str,
         file_path: Path,
-        user_requirements: str = ""
+        user_requirements: str = "",
+        engine_type: Optional[str] = None
     ) -> Dict[str, Any]:
-        """执行质量分析
+        """执行质量分析 - 优化版（采样+流式）
         
         Args:
             dataset_id: 数据集ID
             file_path: 数据文件路径
             user_requirements: 用户需求描述
+            engine_type: 引擎类型（可选，自动选择）
             
         Returns:
-            Dict[str, Any]: 质量分析结果
+            质量分析结果
         """
         try:
             logger.info(f"开始质量分析: {dataset_id}")
             
-            # 加载数据
-            self.quality_analyzer.load_data(file_path)
+            # 加载数据（自动选择引擎，使用采样）
+            self.quality_analyzer.load_data(file_path, engine_type)
             
             # 自动检测列类型
             column_types = self.quality_analyzer.auto_detect_column_types()
@@ -331,7 +346,7 @@ class BusinessAnalysisService:
             quality_report = {
                 "overall_score": report.overall_score,
                 "quality_level": report.quality_level.value if hasattr(report.quality_level, 'value') else str(report.quality_level),
-                "completeness": 0,  # DataQualityReport 不包含这些字段，保留为0以保持兼容性
+                "completeness": 0,
                 "accuracy": 0,
                 "consistency": 0,
                 "timeliness": 0,
@@ -357,28 +372,45 @@ class BusinessAnalysisService:
                 "errors": [str(e)],
                 "report": {}
             }
+            
+            logger.info(f"质量分析完成: {dataset_id}")
+            return {
+                "status": "completed",
+                "report": quality_report,
+                "errors": []
+            }
+            
+        except Exception as e:
+            logger.error(f"质量分析失败: {e}", exc_info=True)
+            return {
+                "status": "failed",
+                "errors": [str(e)],
+                "report": {}
+            }
     
     async def run_enhanced_analysis(
         self,
         file_path: Path,
         dataset_name: str,
-        user_requirements: str = ""
+        user_requirements: str = "",
+        engine_type: Optional[str] = None
     ) -> Dict[str, Any]:
-        """执行增强分析（领域识别+重要列识别）
+        """执行增强分析（领域识别+重要列识别）- 优化版
         
         Args:
             file_path: 数据文件路径
             dataset_name: 数据集名称
             user_requirements: 用户需求描述
+            engine_type: 引擎类型（可选，自动选择）
             
         Returns:
-            Dict[str, Any]: 增强分析结果
+            增强分析结果
         """
         try:
             logger.info(f"开始增强分析: {dataset_name}")
             
-            # 1. 加载数据
-            self.data_analyzer.data = self.data_analyzer.load_data(file_path)
+            # 1. 加载数据（自动选择引擎，使用采样）
+            self.data_analyzer.load_data(file_path, nrows=1000, engine_type=engine_type)
             basic_info = self.data_analyzer.get_basic_info()
             
             # 2. 识别工业领域和业务类型
@@ -397,6 +429,19 @@ class BusinessAnalysisService:
                 "domain_specific_insights": domain_result.get("domain_specific_insights", {}),
                 "important_columns_analysis": important_columns,
                 "errors": []
+            }
+            
+            logger.info(f"增强分析完成: {dataset_name}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"增强分析失败: {e}", exc_info=True)
+            return {
+                "errors": [str(e)],
+                "industrial_domain": {},
+                "business_data_types": [],
+                "domain_specific_insights": {},
+                "important_columns_analysis": {}
             }
             
             logger.info(f"增强分析完成: {dataset_name}")

@@ -47,7 +47,7 @@ class Settings(BaseModel):
     llm_max_tokens: Optional[int] = Field(default=None, description="LLM最大token数")
     
     # 文件处理配置
-    max_file_size: int = Field(default=100 * 1024 * 1024, description="最大文件大小(字节)")  # 100MB
+    max_file_size: int = Field(default=10 * 1024 * 1024 * 1024, description="最大文件大小(字节)")  # 10GB
     allowed_extensions: list = Field(default=[".csv", ".zip"], description="允许的文件扩展名")
     
     # 版本控制配置
@@ -60,6 +60,19 @@ class Settings(BaseModel):
     # 数据处理配置
     sample_rows: int = Field(default=1000, description="数据采样行数")
     preview_rows: int = Field(default=10, description="预览行数")
+    
+    # 大数据处理配置
+    dask_chunk_size: int = Field(default=10000, description="Dask 分块大小")
+    polars_sample_size: int = Field(default=10000, description="Polars 采样大小")
+    
+    # 采样策略配置
+    sample_small_size: int = Field(default=1000, description="小数据集采样大小 (<100MB)")
+    sample_medium_size: int = Field(default=10000, description="中等数据集采样大小 (100MB-1GB)")
+    sample_large_size: int = Field(default=100000, description="大数据集采样大小 (>1GB)")
+    
+    # 引擎选择配置（默认自动选择）
+    prefer_dask: bool = Field(default=True, description="优先使用 Dask")
+    prefer_polars: bool = Field(default=False, description="优先使用 Polars")
 
     # Supabase配置
     supabase_url: Optional[str] = Field(default=None, description="Supabase项目URL")
@@ -68,6 +81,15 @@ class Settings(BaseModel):
     supabase_service_key: Optional[str] = Field(default=None, description="Supabase Service Role Key")
     storage_bucket_name: str = Field(default="dataset-files", description="Supabase Storage存储桶名称")
     storage_max_file_size: int = Field(default=100 * 1024 * 1024, description="Storage最大文件大小(字节)")  # 100MB
+    
+    # DingTalk OAuth配置
+    dingtalk_enabled: bool = Field(default=False, description="是否启用钉钉登录")
+    dingtalk_app_key: Optional[str] = Field(default=None, description="钉钉应用AppKey")
+    dingtalk_app_secret: Optional[str] = Field(default=None, description="钉钉应用AppSecret")
+    dingtalk_redirect_uri: str = Field(default="http://localhost:3000/auth/dingtalk/callback", description="钉钉回调地址")
+    
+    # JWT配置
+    jwt_secret: Optional[str] = Field(default=None, description="JWT密钥")
 
     class Config:
         env_prefix = "DATASET_MANAGER_"
@@ -153,6 +175,17 @@ def get_settings() -> Settings:
     storage_max_file_size = os.getenv("DATASET_MANAGER_STORAGE_MAX_FILE_SIZE")
     if storage_max_file_size:
         config.storage_max_file_size = int(storage_max_file_size)
+    
+    # DingTalk OAuth配置
+    config.dingtalk_enabled = os.getenv("DINGTALK_ENABLED", "false").lower() == "true"
+    config.dingtalk_app_key = os.getenv("DINGTALK_APP_KEY")
+    config.dingtalk_app_secret = os.getenv("DINGTALK_APP_SECRET")
+    dingtalk_redirect_uri = os.getenv("DINGTALK_REDIRECT_URI")
+    if dingtalk_redirect_uri:
+        config.dingtalk_redirect_uri = dingtalk_redirect_uri
+    
+    # JWT配置
+    config.jwt_secret = os.getenv("JWT_SECRET")
 
     # 创建必要的目录（延迟初始化：只在目录不存在时创建，使用线程池避免阻塞）
     # 检查目录是否存在，如果不存在才创建（避免不必要的阻塞）

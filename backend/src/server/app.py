@@ -23,6 +23,7 @@ from .api.v1.tags import router as tags_router
 from .api.v1.version_control import router as version_control_router
 from .api.v1.lineage import router as lineage_router
 from .api.v1.chat import router as chat_router
+from .api.v1.auth import router as auth_router
 from .dependencies import set_dataset_service, set_tag_service
 from .middleware import RequestLoggingMiddleware, SecurityHeadersMiddleware
 
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(version_control_router)
     app.include_router(lineage_router)
     app.include_router(chat_router)  # 聊天路由
+    app.include_router(auth_router, prefix="/api/v1")  # 认证路由
 
     # 静态文件服务（如果有前端文件）
     web_dir = Path("web")
