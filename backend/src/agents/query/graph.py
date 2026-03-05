@@ -23,10 +23,13 @@ except Exception as e:
     logger.warning(f"日志系统初始化失败: {e}，使用默认日志配置")
 
 
-os.environ["LANGSMITH_TRACING"] = "true"
-os.environ["LANGSMITH_API_KEY"] = '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'
-os.environ["LANGSMITH_ENDPOINT"] = "https://api.smith.langchain.com"
-os.environ["LANGSMITH_PROJECT"] = "default"  # 可选，默认为 "default"
+# 从配置读取 LangSmith 设置（避免硬编码 API key）
+config = get_settings()
+os.environ["LANGSMITH_TRACING"] = str(config.langsmith_tracing).lower()
+if config.langsmith_api_key:
+    os.environ["LANGSMITH_API_KEY"] = config.langsmith_api_key
+os.environ["LANGSMITH_ENDPOINT"] = config.langsmith_endpoint
+os.environ["LANGSMITH_PROJECT"] = config.langsmith_project
 
 
 # ===== Agent 状态定义 =====

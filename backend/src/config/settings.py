@@ -90,6 +90,12 @@ class Settings(BaseModel):
     
     # JWT配置
     jwt_secret: Optional[str] = Field(default=None, description="JWT密钥")
+    
+    # LangSmith配置
+    langsmith_api_key: Optional[str] = Field(default=None, description="LangSmith API密钥")
+    langsmith_endpoint: str = Field(default="https://api.smith.langchain.com", description="LangSmith API端点")
+    langsmith_project: str = Field(default="default", description="LangSmith项目名")
+    langsmith_tracing: bool = Field(default=False, description="是否启用LangSmith追踪")
 
     class Config:
         env_prefix = "DATASET_MANAGER_"
@@ -186,6 +192,16 @@ def get_settings() -> Settings:
     
     # JWT配置
     config.jwt_secret = os.getenv("JWT_SECRET")
+    
+    # LangSmith配置
+    config.langsmith_api_key = os.getenv("DATASET_MANAGER_LANGSMITH_API_KEY")
+    langsmith_endpoint = os.getenv("DATASET_MANAGER_LANGSMITH_ENDPOINT")
+    if langsmith_endpoint:
+        config.langsmith_endpoint = langsmith_endpoint
+    langsmith_project = os.getenv("DATASET_MANAGER_LANGSMITH_PROJECT")
+    if langsmith_project:
+        config.langsmith_project = langsmith_project
+    config.langsmith_tracing = os.getenv("DATASET_MANAGER_LANGSMITH_TRACING", "false").lower() == "true"
 
     # 创建必要的目录（延迟初始化：只在目录不存在时创建，使用线程池避免阻塞）
     # 检查目录是否存在，如果不存在才创建（避免不必要的阻塞）
